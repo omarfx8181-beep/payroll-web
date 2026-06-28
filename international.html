@@ -37,8 +37,9 @@
   </div>
   <div class="note">
     Multi-country gross-to-net from the same verified PayrollCore engine — a country is just data.
-    Figures: US 2026, UK 2025/26 (England), Canada 2025 (federal only). Estimates, not tax advice; every
-    pack is <code>verified:false</code> pending accountant sign-off. Kenya demo: <a href="kenya.html">kenya.html</a> · US app: <a href="./">payroll app</a>.
+    Figures: US 2026, UK 2025/26 (England), Canada 2025 (federal only), Australia 2025-26, Ireland 2025.
+    Estimates, not tax advice; every pack is <code>verified:false</code> pending accountant sign-off.
+    Kenya demo: <a href="kenya.html">kenya.html</a> · US app: <a href="./">payroll app</a>.
   </div>
 
   <div class="card">
@@ -48,6 +49,8 @@
           <option value="US">United States (USD)</option>
           <option value="GB">United Kingdom (GBP)</option>
           <option value="CA">Canada (CAD)</option>
+          <option value="AU">Australia (AUD)</option>
+          <option value="IE">Ireland (EUR)</option>
         </select>
       </div>
       <div><label>Pay frequency</label>
@@ -104,6 +107,18 @@
       var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
       var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
       return { ee:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], net:r2(g-fed-cpp-ei), empr:0 };
+    }},
+    AU: { name:"Australia", cur:"AUD", loc:"en-AU", def:"monthly", compute:function(g,p){
+      var tax=bandsTax(g,p,0,[[18200,0],[45000,.16],[135000,.30],[190000,.37],[Infinity,.45]]);
+      var med=r2(g*0.02), sup=r2(g*0.12);
+      return { ee:[["Income Tax (PAYG)",tax],["Medicare Levy",med]], net:r2(g-tax-med), empr:sup };
+    }},
+    IE: { name:"Ireland", cur:"EUR", loc:"en-IE", def:"monthly", compute:function(g,p){
+      var taxGross=bandsTax(g,p,0,[[44000,.20],[Infinity,.40]]);
+      var tax=Math.max(0, r2(taxGross - r2(4000/p)));   // €4,000 annual tax credits
+      var usc=bandsTax(g,p,0,[[12012,.005],[27382,.02],[70044,.03],[Infinity,.08]]);
+      var prsi=r2(g*0.041), eprsi=r2(g*0.1115);
+      return { ee:[["Income Tax (PAYE)",tax],["USC",usc],["PRSI",prsi]], net:r2(g-tax-usc-prsi), empr:eprsi };
     }}
   };
 

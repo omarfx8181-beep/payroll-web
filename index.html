@@ -103,6 +103,9 @@
         <div><label>Pay frequency</label>
           <select id="eFreq"><option value="weekly">Weekly</option><option value="biweekly" selected>Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select>
         </div>
+        <div><label>Filing status</label>
+          <select id="eStatus"><option value="single" selected>Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select>
+        </div>
         <div><label id="eAmtLabel">Annual salary (USD)</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
         <div id="eHoursWrap" style="display:none"><label>Hours per period</label><input id="eHours" type="number" min="0" step="1" placeholder="80" inputmode="numeric" /></div>
       </div>
@@ -145,6 +148,7 @@
   var usd = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
   var PERIODS = {weekly:52, biweekly:26, semimonthly:24, monthly:12};
   var FREQ_LABEL = {weekly:"Weekly", biweekly:"Biweekly", semimonthly:"Semimonthly", monthly:"Monthly"};
+  var STATUS_LABEL = {single:"Single", marriedFilingJointly:"Married/joint", headOfHousehold:"Head of household"};
 
   var state = load();
   var editingId = null;
@@ -163,16 +167,21 @@
     return (emp.annual||0) / p;
   }
 
-  function computeUS(gross, ytdGross, freq){
+  var FED = {
+    single: { std: 16100, bands: [[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]] },
+    marriedFilingJointly: { std: 32200, bands: [[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]] },
+    headOfHousehold: { std: 24150, bands: [[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]] }
+  };
+  function computeUS(gross, ytdGross, freq, status){
     var p = PERIODS[freq] || 26;
-    var WB = 184500, FLOOR = 200000, STD = 16100;
+    var cfg = FED[status] || FED.single;
+    var WB = 184500, FLOOR = 200000, STD = cfg.std, bands = cfg.bands;
     var ficaBase = Math.min(gross, Math.max(0, WB - ytdGross));
     var fica = ficaBase * 0.062;
     var medicare = gross * 0.0145;
     var already = Math.max(0, ytdGross - FLOOR);
     var total = Math.max(0, ytdGross + gross - FLOOR);
     var addl = Math.max(0, total - already) * 0.009;
-    var bands = [[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]];
     var annual = gross * p, taxable = Math.max(0, annual - STD), tax = 0, low = 0;
     for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1];
       if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; }
@@ -197,7 +206,7 @@
     var rows = state.employees.map(function(e){
       var pay = e.payType==="hourly" ? (usd.format(e.rate||0)+"/hr · "+(e.hours||0)+" hrs") : (usd.format(e.annual||0)+"/yr");
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
-        + '<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+usd.format(grossFor(e))+'/period</div></td>'
+        + '<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+STATUS_LABEL[e.filingStatus||"single"]+' · '+usd.format(grossFor(e))+'/period</div></td>'
         + '<td class="num">'+usd.format(e.ytdGross||0)+'<div class="pill">YTD gross</div></td>'
         + '<td class="num"><button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
     }).join("");
@@ -242,7 +251,7 @@
     var date = el("rDate").value || new Date().toISOString().slice(0,10);
     var slips = state.employees.map(function(e){
       var g = grossFor(e);
-      var c = computeUS(g, e.ytdGross||0, e.freq);
+      var c = computeUS(g, e.ytdGross||0, e.freq, e.filingStatus);
       c.name = e.name; c.id = e.id; return c;
     });
     window._currentRun = { date:date, slips:slips };
@@ -295,6 +304,7 @@
     el("eName").value=e.name; el("eDept").value=e.dept||"";
     el("ePayType").value=e.payType; el("ePayType").onchange();
     el("eFreq").value=e.freq;
+    el("eStatus").value = e.filingStatus || "single";
     el("eAmt").value = (e.payType==="hourly") ? (e.rate||0) : (e.annual||0);
     if(e.payType==="hourly") el("eHours").value = e.hours||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
@@ -305,10 +315,11 @@
     var hourly = el("ePayType").value==="hourly";
     var amt = Number(el("eAmt").value)||0;
     var fields = { name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
+      filingStatus: el("eStatus").value,
       annual: hourly?0:amt, rate: hourly?amt:0, hours: hourly?(Number(el("eHours").value)||0):0 };
     if(editingId){
       var ex = state.employees.filter(function(x){return x.id===editingId;})[0];
-      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
+      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.filingStatus=fields.filingStatus; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
       editingId=null; el("eAdd").textContent="Add employee";
     } else {
       fields.id=uid(); fields.ytdGross=0; state.employees.push(fields);
@@ -318,9 +329,9 @@
   el("rRun").onclick = runPayroll;
   el("seedBtn").onclick = function(){
     state.employees = [
-      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", annual:130000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", annual:78000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", annual:0, rate:32, hours:80, ytdGross:0 }
+      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", annual:130000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", annual:78000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", annual:0, rate:32, hours:80, ytdGross:0 }
     ];
     save(); renderEmployees(); show("employees");
   };

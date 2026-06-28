@@ -3,41 +3,34 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Payroll — US</title>
+<title>Payroll</title>
 <style>
   :root{
     --bg:#f5f4ef; --card:#fff; --soft:#faf9f5; --line:#e6e4db; --txt:#1f1f1d; --mut:#6b6a64;
-    --accent:#185fa5; --accent-bg:#e6f1fb; --danger:#a32d2d; --danger-bg:#fcebeb; --ok:#3b6d11;
+    --accent:#185fa5; --accent-bg:#e6f1fb; --danger:#a32d2d; --ok:#3b6d11;
     --r:10px; --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
-  @media (prefers-color-scheme:dark){:root{
-    --bg:#1c1b19; --card:#2a2926; --soft:#232220; --line:#3a3935; --txt:#f1efe8; --mut:#a8a69d;
-    --accent:#85b7eb; --accent-bg:#0c447c; --danger:#f09595; --danger-bg:#501313; --ok:#97c459;}}
+  @media (prefers-color-scheme:dark){:root{ --bg:#1c1b19; --card:#2a2926; --soft:#232220; --line:#3a3935; --txt:#f1efe8;
+    --mut:#a8a69d; --accent:#85b7eb; --accent-bg:#0c447c; --danger:#f09595; --ok:#97c459; }}
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:400 16px/1.5 var(--font);
-    -webkit-text-size-adjust:100%;padding-bottom:40px}
+  body{margin:0;background:var(--bg);color:var(--txt);font:400 16px/1.5 var(--font);-webkit-text-size-adjust:100%;padding-bottom:40px}
   .wrap{max-width:760px;margin:0 auto;padding:14px}
   .topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
   .brand{display:flex;align-items:center;gap:10px}
-  .mark{width:34px;height:34px;border-radius:9px;background:var(--accent-bg);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;font-weight:700}
-  h1{font-size:18px;font-weight:600;margin:0}
+  .mark{width:34px;height:34px;border-radius:9px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-weight:700}
+  h1{font-size:18px;font-weight:600;margin:0} #coName{cursor:pointer}
   .badge{font-size:12px;color:var(--accent);background:var(--accent-bg);padding:3px 8px;border-radius:20px}
-  .note{font-size:12px;color:var(--mut);background:var(--soft);border:0.5px solid var(--line);
-    border-radius:var(--r);padding:8px 11px;margin-bottom:12px}
+  .note{font-size:12px;color:var(--mut);background:var(--soft);border:0.5px solid var(--line);border-radius:var(--r);padding:8px 11px;margin-bottom:12px}
   nav{display:flex;gap:6px;margin-bottom:14px}
-  nav button{flex:1;font:inherit;font-size:14px;padding:9px 0;border:0.5px solid var(--line);
-    border-radius:var(--r);background:var(--card);color:var(--txt);cursor:pointer}
+  nav button{flex:1;font:inherit;font-size:14px;padding:9px 0;border:0.5px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--txt);cursor:pointer}
   nav button.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);font-weight:600}
   .card{background:var(--card);border:0.5px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
   .card h2{font-size:15px;font-weight:600;margin:0 0 10px}
   label{display:block;font-size:13px;color:var(--mut);margin:0 0 4px}
-  input,select{width:100%;font:inherit;font-size:15px;padding:8px 10px;border:0.5px solid var(--line);
-    border-radius:var(--r);background:var(--soft);color:var(--txt)}
+  input,select{width:100%;font:inherit;font-size:15px;padding:8px 10px;border:0.5px solid var(--line);border-radius:var(--r);background:var(--soft);color:var(--txt)}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .row{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
-  button.btn{font:inherit;font-size:14px;padding:9px 14px;border:0.5px solid var(--line);border-radius:var(--r);
-    background:var(--card);color:var(--txt);cursor:pointer}
+  button.btn{font:inherit;font-size:14px;padding:9px 14px;border:0.5px solid var(--line);border-radius:var(--r);background:var(--card);color:var(--txt);cursor:pointer}
   button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
   button.link{background:none;border:none;color:var(--accent);cursor:pointer;font:inherit;font-size:13px;padding:4px}
   button.del{color:var(--danger)}
@@ -45,49 +38,48 @@
   th,td{text-align:left;padding:8px 6px;border-bottom:0.5px solid var(--line)}
   th{font-weight:500;color:var(--mut);font-size:12px}
   td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-  .pill{font-size:12px;color:var(--mut)}
-  .empty{color:var(--mut);font-size:14px;padding:8px 2px}
+  .pill{font-size:12px;color:var(--mut)} .empty{color:var(--mut);font-size:14px;padding:8px 2px}
   .slip{border:0.5px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px;background:var(--soft)}
-  .slip .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
-  .slip .nm{font-weight:600}
+  .slip .h{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px} .slip .nm{font-weight:600}
   .liner{display:flex;justify-content:space-between;font-size:14px;padding:3px 0;color:var(--mut)}
-  .liner .v{color:var(--txt);font-variant-numeric:tabular-nums}
-  .neg .v{color:var(--danger)}
-  .net{border-top:0.5px solid var(--line);margin-top:8px;padding-top:8px;font-weight:600;color:var(--txt)}
-  .net .v{font-size:18px;font-weight:700}
+  .liner .v{color:var(--txt);font-variant-numeric:tabular-nums} .neg .v{color:var(--danger)}
+  .net{border-top:0.5px solid var(--line);margin-top:8px;padding-top:8px;font-weight:600;color:var(--txt)} .net .v{font-size:18px;font-weight:700}
   .totals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
-  .stat{background:var(--soft);border-radius:var(--r);padding:10px}
-  .stat .k{font-size:12px;color:var(--mut)} .stat .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stat{background:var(--soft);border-radius:var(--r);padding:10px} .stat .k{font-size:12px;color:var(--mut)} .stat .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+  .small{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)} .small .v{color:var(--txt);font-weight:600}
   .foot{font-size:12px;color:var(--mut);text-align:center;margin-top:18px}
-  .w2grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .w2box{border:0.5px solid var(--line);border-radius:8px;padding:8px 10px}
-  .w2n{font-size:11px;color:var(--mut)} .w2v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
-  @media print{ body.w2print .wrap>*:not(#w2){display:none !important} body.w2print #w2{display:block !important} }
   @media (max-width:560px){.grid2{grid-template-columns:1fr}}
-  #coName{cursor:pointer}
   @media print{
     body{background:#fff;color:#000;padding:0}
     nav,.note,.foot,#tab-employees,#tab-reports,.badge,#rRun,#rDate,#rPrint,#rFinal,#tab-run>.card:first-of-type{display:none !important}
     .card,.slip{border:1px solid #ccc;break-inside:avoid;background:#fff}
+    body.yeprint .wrap>*:not(#ye){display:none !important} body.yeprint #ye{display:block !important}
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="topbar">
-    <div class="brand">
-      <div class="mark">$</div>
-      <div><h1 id="coName">My Company</h1><div class="pill">United States payroll</div></div>
-    </div>
-    <span class="badge">US · 2026</span>
+    <div class="brand"><div class="mark">$</div><div><h1 id="coName">My Company</h1><div class="pill" id="coSub">payroll</div></div></div>
+    <span class="badge" id="cBadge">—</span>
   </div>
 
-  <div class="note">
-    Prototype using 2026 IRS/SSA figures (Social Security wage base $184,500; Medicare 1.45%; Additional
-    Medicare 0.9% over $200,000; federal withholding for single, married-filing-jointly, and head-of-household
-    with 2026 standard deductions). State income tax is a simple flat per-employee rate you enter — a rough
-    estimate, not real state brackets or rules. Not tax advice — verify with a CPA. Mirrors the verified PayrollCore engine.
+  <div class="card" style="padding:10px 14px">
+    <div class="grid2">
+      <div><label>Country</label>
+        <select id="country">
+          <option value="US">United States (USD)</option>
+          <option value="GB">United Kingdom (GBP)</option>
+          <option value="CA">Canada (CAD)</option>
+          <option value="AU">Australia (AUD)</option>
+          <option value="IE">Ireland (EUR)</option>
+        </select>
+      </div>
+      <div style="align-self:end"><div class="pill" id="cInfo"></div></div>
+    </div>
   </div>
+
+  <div class="note" id="discl"></div>
 
   <nav>
     <button data-tab="employees" class="on">Employees</button>
@@ -101,318 +93,270 @@
       <div class="grid2">
         <div><label>Name</label><input id="eName" type="text" placeholder="Alex Kim" /></div>
         <div><label>Department</label><input id="eDept" type="text" placeholder="Engineering" /></div>
-        <div><label>Pay type</label>
-          <select id="ePayType"><option value="salary">Salary (annual)</option><option value="hourly">Hourly</option></select>
-        </div>
-        <div><label>Pay frequency</label>
-          <select id="eFreq"><option value="weekly">Weekly</option><option value="biweekly" selected>Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select>
-        </div>
-        <div><label>Filing status</label>
-          <select id="eStatus"><option value="single" selected>Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select>
-        </div>
-        <div><label>Home state</label><input id="eState" type="text" maxlength="2" placeholder="CA" style="text-transform:uppercase" /></div>
-        <div><label>State tax rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
-        <div><label>Pre-tax 401(k) ($/period)</label><input id="ePretax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
-        <div><label>Post-tax deduction ($/period)</label><input id="ePosttax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
-        <div><label>SUTA rate (% employer)</label><input id="eSuta" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
-        <div><label id="eAmtLabel">Annual salary (USD)</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
+        <div><label>Pay type</label><select id="ePayType"><option value="salary">Salary (annual)</option><option value="hourly">Hourly</option></select></div>
+        <div><label>Pay frequency</label><select id="eFreq"><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select></div>
+        <div><label id="eAmtLabel">Annual salary</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
         <div id="eHoursWrap" style="display:none"><label>Hours per period</label><input id="eHours" type="number" min="0" step="1" placeholder="80" inputmode="numeric" /></div>
+        <div class="usf"><label>Filing status</label><select id="eStatus"><option value="single">Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select></div>
+        <div class="usf"><label>State tax rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
+        <div class="usf"><label>Pre-tax 401(k) (/period)</label><input id="ePretax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
+        <div class="usf"><label>Post-tax deduction (/period)</label><input id="ePosttax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
+        <div class="usf"><label>SUTA rate (% employer)</label><input id="eSuta" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
       </div>
       <div class="row" style="margin-top:12px"><button class="btn primary" id="eAdd">Add employee</button></div>
     </div>
-
-    <div class="card">
-      <h2>Team</h2>
-      <div id="empList"></div>
-    </div>
+    <div class="card"><h2>Team</h2><div id="empList"></div></div>
   </section>
 
   <section id="tab-run" style="display:none">
-    <div class="card">
-      <h2>Run payroll</h2>
+    <div class="card"><h2>Run payroll</h2>
       <div class="grid2">
         <div><label>Pay date</label><input id="rDate" type="date" /></div>
         <div style="display:flex;align-items:flex-end"><button class="btn primary" id="rRun" style="width:100%">Run payroll</button></div>
       </div>
-      <div class="pill" style="margin-top:8px">Gross is computed per employee from their pay setup. Year-to-date caps (Social Security, Additional Medicare) apply automatically once a run is finalized.</div>
+      <div class="pill" style="margin-top:8px">Gross is computed per employee. US year-to-date caps (Social Security, Additional Medicare, FUTA/SUTA) apply once a run is finalized.</div>
     </div>
     <div id="runOut"></div>
   </section>
 
   <section id="tab-reports" style="display:none">
     <div class="card"><h2>Finalized runs</h2><div id="runHistory"></div></div>
-    <div class="card"><h2>Year-to-date (W-2 preview)</h2><div id="ytdReport"></div>
+    <div class="card"><h2>Year-to-date</h2><div id="ytdReport"></div>
       <div class="row" style="margin-top:10px"><button class="btn" id="csvBtn">Export YTD (CSV)</button></div></div>
-    <div class="card"><h2>Data</h2>
-      <div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn del" id="resetBtn">Reset all data</button></div>
-    </div>
+    <div class="card"><h2>Data</h2><div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn del" id="resetBtn">Reset all data</button></div></div>
   </section>
 
-  <div id="w2" style="display:none"></div>
-  <div class="foot">Stored only in your browser (localStorage). No data leaves this device. · <a href="international.html" style="color:var(--accent)">International calculator (US · UK · Canada)</a></div>
+  <div id="ye" style="display:none"></div>
+  <div class="foot">Stored only in your browser. No data leaves this device. · <a href="international.html" style="color:var(--accent)">Quick international calculator</a></div>
 </div>
 
 <script>
 (function(){
   var KEY = "payroll_us_v1";
-  var usd = new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"});
-  var PERIODS = {weekly:52, biweekly:26, semimonthly:24, monthly:12};
-  var FREQ_LABEL = {weekly:"Weekly", biweekly:"Biweekly", semimonthly:"Semimonthly", monthly:"Monthly"};
-  var STATUS_LABEL = {single:"Single", marriedFilingJointly:"Married/joint", headOfHousehold:"Head of household"};
+  var PERIODS = { weekly:52, biweekly:26, semimonthly:24, monthly:12 };
+  var FREQ_LABEL = { weekly:"Weekly", biweekly:"Biweekly", semimonthly:"Semimonthly", monthly:"Monthly" };
+  var STATUS_LABEL = { single:"Single", marriedFilingJointly:"Married/joint", headOfHousehold:"Head of household" };
+  function r2(x){ return Math.round(x*100)/100; }
+  function bandsTax(g,p,d,bands){ var annual=g*p, taxable=Math.max(0,annual-d), tax=0, low=0;
+    for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1]; if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; } return r2(tax/p); }
+
+  var COUNTRIES = {
+    US:{ name:"United States", cur:"USD", loc:"en-US", us:true,
+      note:"US 2026 figures (SS wage base $184,500, Medicare 1.45%, Add'l Medicare 0.9% over $200k, single/MFJ/HoH federal withholding). State tax flat rate; FUTA 0.6%/$7k + configurable SUTA. Not tax advice; verify with a CPA.",
+      compute:function(e,g,ytd,p){
+        var fica=r2(0.062*Math.min(g,Math.max(0,184500-ytd)));
+        var medicare=r2(0.0145*g);
+        var addl=r2(0.009*(Math.max(0,ytd+g-200000)-Math.max(0,ytd-200000)));
+        var FED={ single:{std:16100,b:[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]]},
+                  marriedFilingJointly:{std:32200,b:[[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]]},
+                  headOfHousehold:{std:24150,b:[[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]]} };
+        var cfg=FED[e.filingStatus]||FED.single;
+        var fed=bandsTax(Math.max(0,g-(e.pretax||0)),p,cfg.std,cfg.b);
+        var state=r2(g*((e.stateRatePct||0)/100)), pre=r2(e.pretax||0), post=r2(e.posttax||0);
+        var empBase=Math.min(g,Math.max(0,7000-ytd)); var futa=r2(0.006*empBase), suta=r2(((e.sutaRatePct||0)/100)*empBase);
+        var L=[["Social Security",fica],["Medicare",medicare]];
+        if(addl>0) L.push(["Additional Medicare",addl]);
+        L.push(["Federal withholding",fed]);
+        if(state>0) L.push(["State withholding",state]);
+        if(pre>0) L.push(["Pre-tax 401(k)",pre]);
+        if(post>0) L.push(["Post-tax deduction",post]);
+        return { eLines:L, employer:r2(fica+medicare+futa+suta), net:r2(g-(fica+medicare+addl+fed+state+pre+post)) };
+      }},
+    GB:{ name:"United Kingdom", cur:"GBP", loc:"en-GB",
+      note:"UK 2025/26 (England): PAYE with £12,570 allowance (20/40/45%), employee NI 8%/2%, employer NI 15%. Annualized estimate; England only; not tax advice.",
+      compute:function(e,g,ytd,p){
+        var tax=bandsTax(g,p,12570,[[37700,.20],[112570,.40],[Infinity,.45]]);
+        var ni=bandsTax(g,p,0,[[12570,0],[50270,.08],[Infinity,.02]]);
+        var enni=bandsTax(g,p,0,[[5000,0],[Infinity,.15]]);
+        return { eLines:[["Income Tax (PAYE)",tax],["National Insurance",ni]], employer:enni, net:r2(g-tax-ni) };
+      }},
+    CA:{ name:"Canada", cur:"CAD", loc:"en-CA",
+      note:"Canada 2025 FEDERAL only (no provincial tax): brackets 14.5–33% with $16,129 BPA, CPP+CPP2, EI 1.64%. Annualized estimate; not tax advice.",
+      compute:function(e,g,ytd,p){
+        var fed=bandsTax(g,p,16129,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]);
+        var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
+        var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
+        return { eLines:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], employer:0, net:r2(g-fed-cpp-ei) };
+      }},
+    AU:{ name:"Australia", cur:"AUD", loc:"en-AU",
+      note:"Australia 2025-26: tax-free to $18,200 then 16/30/37/45%, 2% Medicare levy, 12% employer super. Estimate; not tax advice.",
+      compute:function(e,g,ytd,p){
+        var tax=bandsTax(g,p,0,[[18200,0],[45000,.16],[135000,.30],[190000,.37],[Infinity,.45]]);
+        var med=r2(g*0.02), sup=r2(g*0.12);
+        return { eLines:[["Income Tax (PAYG)",tax],["Medicare Levy",med]], employer:sup, net:r2(g-tax-med) };
+      }},
+    IE:{ name:"Ireland", cur:"EUR", loc:"en-IE",
+      note:"Ireland 2025: 20/40% with €4,000 tax credits, USC bands, PRSI 4.1% (employer 11.15%). Annualized estimate; not tax advice.",
+      compute:function(e,g,ytd,p){
+        var taxG=bandsTax(g,p,0,[[44000,.20],[Infinity,.40]]);
+        var tax=Math.max(0,r2(taxG-r2(4000/p)));
+        var usc=bandsTax(g,p,0,[[12012,.005],[27382,.02],[70044,.03],[Infinity,.08]]);
+        var prsi=r2(g*0.041), eprsi=r2(g*0.1115);
+        return { eLines:[["Income Tax (PAYE)",tax],["USC",usc],["PRSI",prsi]], employer:eprsi, net:r2(g-tax-usc-prsi) };
+      }}
+  };
 
   var state = load();
   var editingId = null;
 
-  function load(){
-    try{ var s = JSON.parse(localStorage.getItem(KEY)); if(s && s.employees) return s; }catch(e){}
-    return { company:"My Company", employees:[], runs:[] };
-  }
+  function load(){ try{ var s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.employees){ s.country=s.country||"US"; return s; } }catch(e){} return { country:"US", company:"My Company", employees:[], runs:[] }; }
   function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
-  function uid(){ return "e" + Math.random().toString(36).slice(2,9); }
-  function r2(x){ return Math.round(x*100)/100; }
-
-  function grossFor(emp){
-    var p = PERIODS[emp.freq] || 26;
-    if(emp.payType === "hourly") return (emp.rate||0) * (emp.hours||0);
-    return (emp.annual||0) / p;
-  }
-
-  var FED = {
-    single: { std: 16100, bands: [[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]] },
-    marriedFilingJointly: { std: 32200, bands: [[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]] },
-    headOfHousehold: { std: 24150, bands: [[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]] }
-  };
-  function computeUS(gross, ytdGross, freq, status, statePct, pretax, posttax, sutaPct){
-    var p = PERIODS[freq] || 26;
-    var cfg = FED[status] || FED.single;
-    var WB = 184500, FLOOR = 200000, STD = cfg.std, bands = cfg.bands;
-    var ficaBase = Math.min(gross, Math.max(0, WB - ytdGross));
-    var fica = ficaBase * 0.062;
-    var medicare = gross * 0.0145;
-    var already = Math.max(0, ytdGross - FLOOR);
-    var total = Math.max(0, ytdGross + gross - FLOOR);
-    var addl = Math.max(0, total - already) * 0.009;
-    var empBase = Math.min(gross, Math.max(0, 7000 - ytdGross)); // FUTA/SUTA first-$7,000 base
-    var futa = 0.006 * empBase;
-    var suta = ((sutaPct||0)/100) * empBase;
-    var fedGross = Math.max(0, gross - (pretax||0));
-    var annual = fedGross * p, taxable = Math.max(0, annual - STD), tax = 0, low = 0;
-    for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1];
-      if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; }
-    var fed = tax / p;
-    var state = gross * ((statePct||0)/100);
-    var pre = r2(pretax||0), post = r2(posttax||0);
-    var ee = { fica:r2(fica), medicare:r2(medicare), addl:r2(addl), fed:r2(fed), state:r2(state) };
-    var net = r2(gross) - (ee.fica + ee.medicare + ee.addl + ee.fed + ee.state) - pre - post;
-    var employer = ee.fica + ee.medicare + r2(futa) + r2(suta);
-    return { gross:r2(gross), fica:ee.fica, medicare:ee.medicare, addl:ee.addl, fed:ee.fed, state:ee.state, pretax:pre, posttax:post, futa:r2(futa), suta:r2(suta), net:r2(net), employer:r2(employer) };
-  }
-
+  function uid(){ return "e"+Math.random().toString(36).slice(2,9); }
+  function ctry(){ return COUNTRIES[state.country] || COUNTRIES.US; }
+  function money(n){ return new Intl.NumberFormat(ctry().loc,{style:"currency",currency:ctry().cur}).format(r2(n)); }
   function el(id){ return document.getElementById(id); }
-  function show(tab){
-    ["employees","run","reports"].forEach(function(t){ el("tab-"+t).style.display = (t===tab?"block":"none"); });
-    document.querySelectorAll("nav button").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===tab); });
-    if(tab==="reports") renderReports();
+  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+
+  function grossFor(e){ var p=PERIODS[e.freq]||26; return e.payType==="hourly" ? (e.rate||0)*(e.hours||0) : (e.annual||0)/p; }
+  function computeFor(e){ return ctry().compute(e, grossFor(e), e.ytdGross||0, PERIODS[e.freq]||26); }
+
+  function show(tab){ ["employees","run","reports"].forEach(function(t){ el("tab-"+t).style.display=(t===tab?"block":"none"); });
+    document.querySelectorAll("nav button").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===tab); }); if(tab==="reports") renderReports(); }
+
+  function applyCountry(){
+    var c=ctry();
+    el("cBadge").textContent = state.country+" · "+c.cur;
+    el("coSub").textContent = c.name+" payroll";
+    el("cInfo").textContent = "Currency "+c.cur;
+    el("discl").textContent = c.note;
+    el("country").value = state.country;
+    el("eAmtLabel").textContent = el("ePayType").value==="hourly" ? "Hourly rate" : "Annual salary";
+    document.querySelectorAll(".usf").forEach(function(d){ d.style.display = c.us ? "" : "none"; });
   }
 
   function renderEmployees(){
     el("coName").textContent = state.company;
-    var box = el("empList");
-    if(!state.employees.length){ box.innerHTML = '<div class="empty">No employees yet. Add one above, or load a sample team from Reports.</div>'; return; }
-    var rows = state.employees.map(function(e){
-      var pay = e.payType==="hourly" ? (usd.format(e.rate||0)+"/hr · "+(e.hours||0)+" hrs") : (usd.format(e.annual||0)+"/yr");
+    var box=el("empList");
+    if(!state.employees.length){ box.innerHTML='<div class="empty">No employees yet. Add one above, or load a sample team from Reports.</div>'; return; }
+    var rows=state.employees.map(function(e){
+      var pay = e.payType==="hourly" ? (money(e.rate||0)+"/hr · "+(e.hours||0)+" hrs") : (money(e.annual||0)+"/yr");
+      var extra = ctry().us ? (STATUS_LABEL[e.filingStatus||"single"]+" · ") : "";
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
-        + '<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+STATUS_LABEL[e.filingStatus||"single"]+' · '+usd.format(grossFor(e))+'/period</div></td>'
-        + '<td class="num">'+usd.format(e.ytdGross||0)+'<div class="pill">YTD gross</div></td>'
-        + '<td class="num"><button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
+        +'<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+extra+money(grossFor(e))+'/period</div></td>'
+        +'<td class="num">'+money(e.ytdGross||0)+'<div class="pill">YTD gross</div></td>'
+        +'<td class="num"><button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
     }).join("");
-    box.innerHTML = '<table><tr><th>Name</th><th>Pay</th><th class="num">YTD</th><th></th></tr>'+rows+'</table>';
-    box.querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){
-      state.employees = state.employees.filter(function(x){return x.id!==b.dataset.del;}); save(); renderEmployees(); }; });
-    box.querySelectorAll("[data-edit]").forEach(function(b){ b.onclick=function(){
-      var e=state.employees.filter(function(x){return x.id===b.dataset.edit;})[0]; if(e){ setFormForEdit(e); show("employees"); } }; });
+    box.innerHTML='<table><tr><th>Name</th><th>Pay</th><th class="num">YTD</th><th></th></tr>'+rows+'</table>';
+    box.querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){ state.employees=state.employees.filter(function(x){return x.id!==b.dataset.del;}); save(); renderEmployees(); }; });
+    box.querySelectorAll("[data-edit]").forEach(function(b){ b.onclick=function(){ var e=state.employees.filter(function(x){return x.id===b.dataset.edit;})[0]; if(e){ setFormForEdit(e); show("employees"); } }; });
   }
 
-  function renderRun(payslips, finalized){
-    var box = el("runOut");
-    if(!payslips){ box.innerHTML=""; return; }
-    if(!payslips.length){ box.innerHTML = '<div class="card"><div class="empty">No employees to pay. Add employees first.</div></div>'; return; }
+  function line(label,amt,neg){ return '<div class="liner '+(neg?"neg":"")+'"><span>'+esc(label)+'</span><span class="v">'+(neg?"−":"")+money(amt)+'</span></div>'; }
+
+  function renderRun(slips, finalized){
+    var box=el("runOut"); if(!slips){ box.innerHTML=""; return; }
+    if(!slips.length){ box.innerHTML='<div class="card"><div class="empty">No employees to pay. Add employees first.</div></div>'; return; }
     var tg=0,tn=0,te=0,tt=0;
-    var cards = payslips.map(function(s){
-      tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.fica+s.medicare+s.addl+s.fed+s.state);
-      return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+'</span><span class="pill">'+usd.format(s.gross)+' gross</span></div>'
-        + line("Social Security", s.fica, true) + line("Medicare", s.medicare, true)
-        + (s.addl>0?line("Additional Medicare", s.addl, true):"")
-        + line("Federal withholding", s.fed, true)
-        + (s.state>0?line("State withholding", s.state, true):"")
-        + (s.pretax>0?line("Pre-tax 401(k)", s.pretax, true):"")
-        + (s.posttax>0?line("Post-tax deduction", s.posttax, true):"")
-        + '<div class="liner net"><span>Net pay</span><span class="v">'+usd.format(s.net)+'</span></div></div>';
+    var cards=slips.map(function(s){ tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.gross-s.net);
+      var ls=s.eLines.map(function(x){ return line(x[0],x[1],true); }).join("");
+      return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+'</span><span class="pill">'+money(s.gross)+' gross</span></div>'
+        +ls+'<div class="liner net"><span>Net pay</span><span class="v">'+money(s.net)+'</span></div></div>';
     }).join("");
-    var head = '<div class="card"><h2>'+(finalized?"Run finalized":"Payroll preview")+'</h2>'
-      + '<div class="totals"><div class="stat"><div class="k">Total gross</div><div class="val">'+usd.format(tg)+'</div></div>'
-      + '<div class="stat"><div class="k">Total net</div><div class="val">'+usd.format(tn)+'</div></div>'
-      + '<div class="stat"><div class="k">Employee taxes</div><div class="val">'+usd.format(r2(tt))+'</div></div>'
-      + '<div class="stat"><div class="k">Employer cost</div><div class="val">'+usd.format(r2(tg+te))+'</div></div></div>'
-      + '<div class="row" style="margin-top:12px">'
-      + (finalized? '' : '<button class="btn primary" id="rFinal">Finalize &amp; record run</button>')
-      + '<button class="btn" id="rPrint">Print payslips</button>'
-      + '</div>'
-      + (finalized? '<div class="pill" style="margin-top:8px;color:var(--ok)">Recorded. YTD updated for '+payslips.length+' employee(s).</div>' : '')
-      + '</div>';
-    box.innerHTML = head + cards;
-    if(!finalized){ el("rFinal").onclick = function(){ finalizeRun(payslips); }; }
-    el("rPrint").onclick = function(){ window.print(); };
+    var head='<div class="card"><h2>'+(finalized?"Run finalized":"Payroll preview")+'</h2>'
+      +'<div class="totals"><div class="stat"><div class="k">Total gross</div><div class="val">'+money(tg)+'</div></div>'
+      +'<div class="stat"><div class="k">Total net</div><div class="val">'+money(tn)+'</div></div>'
+      +'<div class="stat"><div class="k">Employee deductions</div><div class="val">'+money(tt)+'</div></div>'
+      +'<div class="stat"><div class="k">Employer cost</div><div class="val">'+money(tg+te)+'</div></div></div>'
+      +'<div class="row" style="margin-top:12px">'+(finalized?"":'<button class="btn primary" id="rFinal">Finalize &amp; record run</button>')+'<button class="btn" id="rPrint">Print payslips</button></div>'
+      +(finalized?'<div class="pill" style="margin-top:8px;color:var(--ok)">Recorded. YTD updated for '+slips.length+' employee(s).</div>':'')+'</div>';
+    box.innerHTML=head+cards;
+    if(!finalized){ el("rFinal").onclick=function(){ finalizeRun(slips); }; }
+    el("rPrint").onclick=function(){ window.print(); };
   }
-  function line(label, amt, neg){ return '<div class="liner '+(neg?"neg":"")+'"><span>'+label+'</span><span class="v">'+(neg?"−":"")+usd.format(amt)+'</span></div>'; }
 
   function runPayroll(){
-    var date = el("rDate").value || new Date().toISOString().slice(0,10);
-    var slips = state.employees.map(function(e){
-      var g = grossFor(e);
-      var c = computeUS(g, e.ytdGross||0, e.freq, e.filingStatus, e.stateRatePct, e.pretax, e.posttax, e.sutaRatePct);
-      c.name = e.name; c.id = e.id; return c;
-    });
-    window._currentRun = { date:date, slips:slips };
+    var date=el("rDate").value || new Date().toISOString().slice(0,10);
+    var slips=state.employees.map(function(e){ var c=computeFor(e); return { id:e.id, name:e.name, gross:r2(grossFor(e)), eLines:c.eLines, employer:c.employer, net:c.net }; });
+    window._run={ date:date };
     renderRun(slips, false);
   }
   function finalizeRun(slips){
-    var date = (window._currentRun && window._currentRun.date) || new Date().toISOString().slice(0,10);
-    slips.forEach(function(s){
-      var e = state.employees.filter(function(x){return x.id===s.id;})[0];
-      if(e){ e.ytdGross = r2((e.ytdGross||0) + s.gross); }
-    });
-    var totals = slips.reduce(function(a,s){ a.gross+=s.gross; a.net+=s.net; a.employer+=s.employer;
-      a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; return a; },
-      {gross:0,net:0,employer:0,fica:0,medicare:0,addl:0,fed:0});
-    state.runs.push({ date:date, count:slips.length, slips:slips, totals:totals });
+    var date=(window._run&&window._run.date)||new Date().toISOString().slice(0,10);
+    slips.forEach(function(s){ var e=state.employees.filter(function(x){return x.id===s.id;})[0]; if(e){ e.ytdGross=r2((e.ytdGross||0)+s.gross); } });
+    state.runs.push({ date:date, country:state.country, count:slips.length, slips:slips });
     save(); renderEmployees(); renderRun(slips, true);
   }
 
+  function ytdAgg(empId){ var a={gross:0,net:0,lines:{}}; state.runs.forEach(function(r){ r.slips.forEach(function(s){ if(s.id===empId){ a.gross+=s.gross; a.net+=s.net; s.eLines.forEach(function(x){ a.lines[x[0]]=(a.lines[x[0]]||0)+x[1]; }); } }); }); return a; }
+
   function renderReports(){
-    var rh = el("runHistory");
-    if(!state.runs.length){ rh.innerHTML='<div class="empty">No finalized runs yet.</div>'; }
-    else{
-      rh.innerHTML = '<table><tr><th>Pay date</th><th class="num">Employees</th><th class="num">Gross</th><th class="num">Net</th><th class="num">Employer cost</th></tr>'
-        + state.runs.slice().reverse().map(function(r){ var t=r.totals;
-          return '<tr><td>'+esc(r.date)+'</td><td class="num">'+r.count+'</td><td class="num">'+usd.format(r2(t.gross))
-            +'</td><td class="num">'+usd.format(r2(t.net))+'</td><td class="num">'+usd.format(r2(t.gross+t.employer))+'</td></tr>'; }).join("")
-        + '</table>';
-    }
-    var yr = el("ytdReport");
+    var rh=el("runHistory");
+    rh.innerHTML = !state.runs.length ? '<div class="empty">No finalized runs yet.</div>' :
+      '<table><tr><th>Pay date</th><th>Country</th><th class="num">Employees</th><th class="num">Gross</th><th class="num">Net</th></tr>'
+      + state.runs.slice().reverse().map(function(r){ var tg=0,tn=0; r.slips.forEach(function(s){tg+=s.gross;tn+=s.net;});
+        return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.country||"US")+'</td><td class="num">'+r.count+'</td><td class="num">'+money(tg)+'</td><td class="num">'+money(tn)+'</td></tr>'; }).join("")+'</table>';
+    var yr=el("ytdReport");
     if(!state.employees.length){ yr.innerHTML='<div class="empty">No employees.</div>'; return; }
-    var agg = {};
-    state.runs.forEach(function(r){ r.slips.forEach(function(s){
-      var a = agg[s.id] || (agg[s.id]={name:s.name, gross:0, fica:0, medicare:0, addl:0, fed:0, state:0, net:0});
-      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; }); });
-    var rows = state.employees.map(function(e){ var a = agg[e.id] || {name:e.name,gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
-      return '<tr><td>'+esc(e.name)+'</td><td class="num">'+usd.format(r2(a.gross))+'</td><td class="num">'+usd.format(r2(a.fed))
-        +'</td><td class="num">'+usd.format(r2(a.state))+'</td><td class="num">'+usd.format(r2(a.fica+a.medicare+a.addl))+'</td><td class="num">'+usd.format(r2(a.net))
-        +'</td><td class="num"><button class="link" data-w2="'+e.id+'">W-2</button></td></tr>'; }).join("");
-    yr.innerHTML = '<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Fed w/h</th><th class="num">State w/h</th><th class="num">FICA+Medicare</th><th class="num">YTD net</th><th></th></tr>'+rows+'</table>';
-    yr.querySelectorAll("[data-w2]").forEach(function(b){ b.onclick=function(){ showW2(b.dataset.w2); }; });
+    var rows=state.employees.map(function(e){ var a=ytdAgg(e.id);
+      return '<tr><td>'+esc(e.name)+'</td><td class="num">'+money(a.gross)+'</td><td class="num">'+money(a.gross-a.net)+'</td><td class="num">'+money(a.net)+'</td>'
+        +'<td class="num"><button class="link" data-ye="'+e.id+'">Year-end</button></td></tr>'; }).join("");
+    yr.innerHTML='<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Deductions</th><th class="num">Net</th><th></th></tr>'+rows+'</table>';
+    yr.querySelectorAll("[data-ye]").forEach(function(b){ b.onclick=function(){ showYearEnd(b.dataset.ye); }; });
   }
 
-  function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
-
-  function ytdAgg(empId){
-    var a={gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
-    state.runs.forEach(function(r){ r.slips.forEach(function(s){ if(s.id===empId){
-      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; } }); });
-    return a;
-  }
-  function showW2(empId){
-    var e = state.employees.filter(function(x){return x.id===empId;})[0]; if(!e) return;
-    var a = ytdAgg(empId);
-    var ssWages = a.fica>0 ? r2(a.fica/0.062) : 0;
+  function showYearEnd(empId){
+    var e=state.employees.filter(function(x){return x.id===empId;})[0]; if(!e) return;
+    var a=ytdAgg(empId);
     var year = state.runs.length ? Math.max.apply(null, state.runs.map(function(r){return Number((r.date||"").slice(0,4))||0;})) : new Date().getFullYear();
-    function box(n,label,val){ return '<div class="w2box"><div class="w2n">'+n+'  '+label+'</div><div class="w2v">'+val+'</div></div>'; }
-    el("w2").innerHTML =
-      '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      + '<h2>Form W-2 (preview) — '+year+'</h2>'
-      + '<div><button class="btn" id="w2print">Print</button> <button class="btn" id="w2close">Close</button></div></div>'
-      + '<div class="pill" style="margin-bottom:10px">Employer: '+esc(state.company)+' · Employee: '+esc(e.name)+(e.state?(' · State '+esc(e.state)):'')+'</div>'
-      + '<div class="w2grid">'
-      + box("1","Wages, tips, other comp.", usd.format(r2(a.gross)))
-      + box("2","Federal income tax withheld", usd.format(r2(a.fed)))
-      + box("3","Social Security wages", usd.format(ssWages))
-      + box("4","Social Security tax withheld", usd.format(r2(a.fica)))
-      + box("5","Medicare wages and tips", usd.format(r2(a.gross)))
-      + box("6","Medicare tax withheld", usd.format(r2(a.medicare+a.addl)))
-      + box("16","State wages, tips, etc.", usd.format(r2(a.gross)))
-      + box("17","State income tax", usd.format(r2(a.state)))
-      + '</div>'
-      + '<div class="pill" style="margin-top:10px">Preview only — not an official IRS form. Box 1 assumes no pre-tax deductions.</div></div>';
-    el("w2").style.display="block";
-    el("w2print").onclick=function(){ document.body.classList.add("w2print"); window.print(); document.body.classList.remove("w2print"); };
-    el("w2close").onclick=function(){ el("w2").style.display="none"; };
-    el("w2").scrollIntoView({behavior:"smooth"});
+    var rows=Object.keys(a.lines).map(function(k){ return '<div class="small" style="margin-top:6px"><span>'+esc(k)+'</span><span class="v">'+money(a.lines[k])+'</span></div>'; }).join("");
+    el("ye").innerHTML='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      +'<h2>Year-end summary — '+ctry().name+' '+year+'</h2><div><button class="btn" id="yePrint">Print</button> <button class="btn" id="yeClose">Close</button></div></div>'
+      +'<div class="pill" style="margin-bottom:10px">Employer: '+esc(state.company)+' · Employee: '+esc(e.name)+'</div>'
+      +'<div class="small"><span>Gross pay (YTD)</span><span class="v">'+money(a.gross)+'</span></div>'+rows
+      +'<div class="liner net" style="margin-top:8px"><span>Net pay (YTD)</span><span class="v">'+money(a.net)+'</span></div>'
+      +'<div class="pill" style="margin-top:10px">Preview only — not an official statutory form ('+(ctry().us?"W-2":"P60/T4/etc.")+').</div></div>';
+    el("ye").style.display="block";
+    el("yePrint").onclick=function(){ document.body.classList.add("yeprint"); window.print(); document.body.classList.remove("yeprint"); };
+    el("yeClose").onclick=function(){ el("ye").style.display="none"; };
+    el("ye").scrollIntoView({behavior:"smooth"});
   }
 
-  el("ePayType").onchange = function(){
-    var hourly = this.value==="hourly";
-    el("eHoursWrap").style.display = hourly?"block":"none";
-    el("eAmtLabel").textContent = hourly?"Hourly rate (USD)":"Annual salary (USD)";
-    el("eAmt").placeholder = hourly?"45":"130000";
-  };
   function setFormForEdit(e){
-    el("eName").value=e.name; el("eDept").value=e.dept||"";
-    el("ePayType").value=e.payType; el("ePayType").onchange();
-    el("eFreq").value=e.freq;
-    el("eStatus").value = e.filingStatus || "single";
-    el("eState").value = e.state || "";
-    el("eStateRate").value = e.stateRatePct || 0;
-    el("ePretax").value = e.pretax || 0;
-    el("ePosttax").value = e.posttax || 0;
-    el("eSuta").value = e.sutaRatePct || 0;
-    el("eAmt").value = (e.payType==="hourly") ? (e.rate||0) : (e.annual||0);
-    if(e.payType==="hourly") el("eHours").value = e.hours||0;
+    el("eName").value=e.name; el("eDept").value=e.dept||""; el("ePayType").value=e.payType; el("ePayType").onchange();
+    el("eFreq").value=e.freq; el("eAmt").value=(e.payType==="hourly")?(e.rate||0):(e.annual||0);
+    if(e.payType==="hourly") el("eHours").value=e.hours||0;
+    el("eStatus").value=e.filingStatus||"single"; el("eState").value=e.state||""; el("eStateRate").value=e.stateRatePct||0;
+    el("ePretax").value=e.pretax||0; el("ePosttax").value=e.posttax||0; el("eSuta").value=e.sutaRatePct||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
     try{ el("eName").scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
   }
-  el("eAdd").onclick = function(){
-    var name = el("eName").value.trim(); if(!name){ el("eName").focus(); return; }
-    var hourly = el("ePayType").value==="hourly";
-    var amt = Number(el("eAmt").value)||0;
-    var fields = { name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
-      filingStatus: el("eStatus").value, state: el("eState").value.trim().toUpperCase(), stateRatePct: Number(el("eStateRate").value)||0,
-      pretax: Number(el("ePretax").value)||0, posttax: Number(el("ePosttax").value)||0, sutaRatePct: Number(el("eSuta").value)||0,
-      annual: hourly?0:amt, rate: hourly?amt:0, hours: hourly?(Number(el("eHours").value)||0):0 };
-    if(editingId){
-      var ex = state.employees.filter(function(x){return x.id===editingId;})[0];
-      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.filingStatus=fields.filingStatus; ex.state=fields.state; ex.stateRatePct=fields.stateRatePct; ex.pretax=fields.pretax; ex.posttax=fields.posttax; ex.sutaRatePct=fields.sutaRatePct; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
-      editingId=null; el("eAdd").textContent="Add employee";
-    } else {
-      fields.id=uid(); fields.ytdGross=0; state.employees.push(fields);
-    }
+
+  el("ePayType").onchange=function(){ var hourly=this.value==="hourly"; el("eHoursWrap").style.display=hourly?"block":"none"; el("eAmtLabel").textContent=hourly?"Hourly rate":"Annual salary"; };
+  el("eAdd").onclick=function(){
+    var name=el("eName").value.trim(); if(!name){ el("eName").focus(); return; }
+    var hourly=el("ePayType").value==="hourly", amt=Number(el("eAmt").value)||0;
+    var f={ name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
+      filingStatus:el("eStatus").value, state:el("eState").value.trim().toUpperCase(), stateRatePct:Number(el("eStateRate").value)||0,
+      pretax:Number(el("ePretax").value)||0, posttax:Number(el("ePosttax").value)||0, sutaRatePct:Number(el("eSuta").value)||0,
+      annual:hourly?0:amt, rate:hourly?amt:0, hours:hourly?(Number(el("eHours").value)||0):0 };
+    if(editingId){ var ex=state.employees.filter(function(x){return x.id===editingId;})[0];
+      if(ex){ for(var k in f){ ex[k]=f[k]; } } editingId=null; el("eAdd").textContent="Add employee"; }
+    else { f.id=uid(); f.ytdGross=0; state.employees.push(f); }
     save(); ["eName","eDept","eAmt","eHours"].forEach(function(id){ el(id).value=""; }); renderEmployees();
   };
-  el("rRun").onclick = runPayroll;
-  el("seedBtn").onclick = function(){
-    state.employees = [
-      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:6, pretax:200, sutaRatePct:3.4, annual:130000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", state:"TX", stateRatePct:0, sutaRatePct:2.7, annual:78000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:5, sutaRatePct:4.1, annual:0, rate:32, hours:80, ytdGross:0 }
+  el("rRun").onclick=runPayroll;
+  el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); };
+  el("coName").onclick=function(){ var n=prompt("Company name", state.company); if(n!==null){ state.company=(n.trim()||state.company); save(); el("coName").textContent=state.company; } };
+  el("seedBtn").onclick=function(){
+    state.employees=[
+      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:6, pretax:200, posttax:0, sutaRatePct:3.4, annual:130000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", state:"TX", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:2.7, annual:78000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:5, pretax:0, posttax:0, sutaRatePct:4.1, annual:0, rate:32, hours:80, ytdGross:0 }
     ];
     save(); renderEmployees(); show("employees");
   };
-  el("resetBtn").onclick = function(){ if(confirm("Delete all employees and runs on this device?")){ state={company:"My Company",employees:[],runs:[]}; save(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; } };
-  document.querySelectorAll("nav button").forEach(function(b){ b.onclick=function(){ show(b.dataset.tab); }; });
-  el("coName").onclick = function(){ var n = prompt("Company name", state.company); if(n!==null){ state.company = (n.trim()||state.company); save(); el("coName").textContent = state.company; } };
-  el("csvBtn").onclick = function(){
-    var agg={}; state.runs.forEach(function(r){ r.slips.forEach(function(s){
-      var a=agg[s.id]||(agg[s.id]={gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0});
-      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; }); });
-    var rows=[["Employee","YTD gross","Social Security","Medicare","Additional Medicare","Federal withholding","State withholding","YTD net"]];
-    state.employees.forEach(function(e){ var a=agg[e.id]||{gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
-      rows.push([e.name, r2(a.gross), r2(a.fica), r2(a.medicare), r2(a.addl), r2(a.fed), r2(a.state), r2(a.net)]); });
+  el("resetBtn").onclick=function(){ if(confirm("Delete all employees and runs on this device?")){ state={country:state.country,company:"My Company",employees:[],runs:[]}; save(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; el("ye").style.display="none"; } };
+  el("csvBtn").onclick=function(){
+    var rows=[["Employee","YTD gross","YTD deductions","YTD net","Currency"]];
+    state.employees.forEach(function(e){ var a=ytdAgg(e.id); rows.push([e.name, r2(a.gross), r2(a.gross-a.net), r2(a.net), ctry().cur]); });
     var csv=rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(","); }).join("\n");
-    var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); var url=URL.createObjectURL(blob);
+    var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}), url=URL.createObjectURL(blob);
     var a=document.createElement("a"); a.href=url; a.download="payroll-ytd.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
+  document.querySelectorAll("nav button").forEach(function(b){ b.onclick=function(){ show(b.dataset.tab); }; });
 
-  el("rDate").value = new Date().toISOString().slice(0,10);
-  renderEmployees();
+  el("rDate").value=new Date().toISOString().slice(0,10);
+  applyCountry(); renderEmployees();
 })();
 </script>
 </body>

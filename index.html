@@ -60,6 +60,12 @@
   .stat .k{font-size:12px;color:var(--mut)} .stat .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
   .foot{font-size:12px;color:var(--mut);text-align:center;margin-top:18px}
   @media (max-width:560px){.grid2{grid-template-columns:1fr}}
+  #coName{cursor:pointer}
+  @media print{
+    body{background:#fff;color:#000;padding:0}
+    nav,.note,.foot,#tab-employees,#tab-reports,.badge,#rRun,#rDate,#rPrint,#rFinal,#tab-run>.card:first-of-type{display:none !important}
+    .card,.slip{border:1px solid #ccc;break-inside:avoid;background:#fff}
+  }
 </style>
 </head>
 <body>
@@ -123,7 +129,8 @@
 
   <section id="tab-reports" style="display:none">
     <div class="card"><h2>Finalized runs</h2><div id="runHistory"></div></div>
-    <div class="card"><h2>Year-to-date (W-2 preview)</h2><div id="ytdReport"></div></div>
+    <div class="card"><h2>Year-to-date (W-2 preview)</h2><div id="ytdReport"></div>
+      <div class="row" style="margin-top:10px"><button class="btn" id="csvBtn">Export YTD (CSV)</button></div></div>
     <div class="card"><h2>Data</h2>
       <div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn del" id="resetBtn">Reset all data</button></div>
     </div>
@@ -140,6 +147,7 @@
   var FREQ_LABEL = {weekly:"Weekly", biweekly:"Biweekly", semimonthly:"Semimonthly", monthly:"Monthly"};
 
   var state = load();
+  var editingId = null;
 
   function load(){
     try{ var s = JSON.parse(localStorage.getItem(KEY)); if(s && s.employees) return s; }catch(e){}
@@ -191,11 +199,13 @@
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
         + '<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+usd.format(grossFor(e))+'/period</div></td>'
         + '<td class="num">'+usd.format(e.ytdGross||0)+'<div class="pill">YTD gross</div></td>'
-        + '<td class="num"><button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
+        + '<td class="num"><button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
     }).join("");
     box.innerHTML = '<table><tr><th>Name</th><th>Pay</th><th class="num">YTD</th><th></th></tr>'+rows+'</table>';
     box.querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){
       state.employees = state.employees.filter(function(x){return x.id!==b.dataset.del;}); save(); renderEmployees(); }; });
+    box.querySelectorAll("[data-edit]").forEach(function(b){ b.onclick=function(){
+      var e=state.employees.filter(function(x){return x.id===b.dataset.edit;})[0]; if(e){ setFormForEdit(e); show("employees"); } }; });
   }
 
   function renderRun(payslips, finalized){
@@ -216,11 +226,15 @@
       + '<div class="stat"><div class="k">Total net</div><div class="val">'+usd.format(tn)+'</div></div>'
       + '<div class="stat"><div class="k">Employee taxes</div><div class="val">'+usd.format(r2(tt))+'</div></div>'
       + '<div class="stat"><div class="k">Employer cost</div><div class="val">'+usd.format(r2(tg+te))+'</div></div></div>'
-      + (finalized? '<div class="pill" style="margin-top:10px;color:var(--ok)">Recorded. YTD updated for '+payslips.length+' employee(s).</div>'
-        : '<div class="row" style="margin-top:12px"><button class="btn primary" id="rFinal">Finalize &amp; record run</button></div>')
+      + '<div class="row" style="margin-top:12px">'
+      + (finalized? '' : '<button class="btn primary" id="rFinal">Finalize &amp; record run</button>')
+      + '<button class="btn" id="rPrint">Print payslips</button>'
+      + '</div>'
+      + (finalized? '<div class="pill" style="margin-top:8px;color:var(--ok)">Recorded. YTD updated for '+payslips.length+' employee(s).</div>' : '')
       + '</div>';
     box.innerHTML = head + cards;
     if(!finalized){ el("rFinal").onclick = function(){ finalizeRun(payslips); }; }
+    el("rPrint").onclick = function(){ window.print(); };
   }
   function line(label, amt, neg){ return '<div class="liner '+(neg?"neg":"")+'"><span>'+label+'</span><span class="v">'+(neg?"−":"")+usd.format(amt)+'</span></div>'; }
 
@@ -277,12 +291,28 @@
     el("eAmtLabel").textContent = hourly?"Hourly rate (USD)":"Annual salary (USD)";
     el("eAmt").placeholder = hourly?"45":"130000";
   };
+  function setFormForEdit(e){
+    el("eName").value=e.name; el("eDept").value=e.dept||"";
+    el("ePayType").value=e.payType; el("ePayType").onchange();
+    el("eFreq").value=e.freq;
+    el("eAmt").value = (e.payType==="hourly") ? (e.rate||0) : (e.annual||0);
+    if(e.payType==="hourly") el("eHours").value = e.hours||0;
+    editingId=e.id; el("eAdd").textContent="Save changes";
+    try{ el("eName").scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
+  }
   el("eAdd").onclick = function(){
     var name = el("eName").value.trim(); if(!name){ el("eName").focus(); return; }
     var hourly = el("ePayType").value==="hourly";
     var amt = Number(el("eAmt").value)||0;
-    state.employees.push({ id:uid(), name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value,
-      freq:el("eFreq").value, annual: hourly?0:amt, rate: hourly?amt:0, hours: hourly?(Number(el("eHours").value)||0):0, ytdGross:0 });
+    var fields = { name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
+      annual: hourly?0:amt, rate: hourly?amt:0, hours: hourly?(Number(el("eHours").value)||0):0 };
+    if(editingId){
+      var ex = state.employees.filter(function(x){return x.id===editingId;})[0];
+      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
+      editingId=null; el("eAdd").textContent="Add employee";
+    } else {
+      fields.id=uid(); fields.ytdGross=0; state.employees.push(fields);
+    }
     save(); ["eName","eDept","eAmt","eHours"].forEach(function(id){ el(id).value=""; }); renderEmployees();
   };
   el("rRun").onclick = runPayroll;
@@ -296,6 +326,18 @@
   };
   el("resetBtn").onclick = function(){ if(confirm("Delete all employees and runs on this device?")){ state={company:"My Company",employees:[],runs:[]}; save(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; } };
   document.querySelectorAll("nav button").forEach(function(b){ b.onclick=function(){ show(b.dataset.tab); }; });
+  el("coName").onclick = function(){ var n = prompt("Company name", state.company); if(n!==null){ state.company = (n.trim()||state.company); save(); el("coName").textContent = state.company; } };
+  el("csvBtn").onclick = function(){
+    var agg={}; state.runs.forEach(function(r){ r.slips.forEach(function(s){
+      var a=agg[s.id]||(agg[s.id]={gross:0,fica:0,medicare:0,addl:0,fed:0,net:0});
+      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.net+=s.net; }); });
+    var rows=[["Employee","YTD gross","Social Security","Medicare","Additional Medicare","Federal withholding","YTD net"]];
+    state.employees.forEach(function(e){ var a=agg[e.id]||{gross:0,fica:0,medicare:0,addl:0,fed:0,net:0};
+      rows.push([e.name, r2(a.gross), r2(a.fica), r2(a.medicare), r2(a.addl), r2(a.fed), r2(a.net)]); });
+    var csv=rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(","); }).join("\n");
+    var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); var url=URL.createObjectURL(blob);
+    var a=document.createElement("a"); a.href=url; a.download="payroll-ytd.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+  };
 
   el("rDate").value = new Date().toISOString().slice(0,10);
   renderEmployees();

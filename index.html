@@ -59,6 +59,10 @@
   .stat{background:var(--soft);border-radius:var(--r);padding:10px}
   .stat .k{font-size:12px;color:var(--mut)} .stat .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
   .foot{font-size:12px;color:var(--mut);text-align:center;margin-top:18px}
+  .w2grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .w2box{border:0.5px solid var(--line);border-radius:8px;padding:8px 10px}
+  .w2n{font-size:11px;color:var(--mut)} .w2v{font-size:16px;font-weight:600;font-variant-numeric:tabular-nums}
+  @media print{ body.w2print .wrap>*:not(#w2){display:none !important} body.w2print #w2{display:block !important} }
   @media (max-width:560px){.grid2{grid-template-columns:1fr}}
   #coName{cursor:pointer}
   @media print{
@@ -141,6 +145,7 @@
     </div>
   </section>
 
+  <div id="w2" style="display:none"></div>
   <div class="foot">Stored only in your browser (localStorage). No data leaves this device.</div>
 </div>
 
@@ -292,11 +297,47 @@
       a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; }); });
     var rows = state.employees.map(function(e){ var a = agg[e.id] || {name:e.name,gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
       return '<tr><td>'+esc(e.name)+'</td><td class="num">'+usd.format(r2(a.gross))+'</td><td class="num">'+usd.format(r2(a.fed))
-        +'</td><td class="num">'+usd.format(r2(a.state))+'</td><td class="num">'+usd.format(r2(a.fica+a.medicare+a.addl))+'</td><td class="num">'+usd.format(r2(a.net))+'</td></tr>'; }).join("");
-    yr.innerHTML = '<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Fed w/h</th><th class="num">State w/h</th><th class="num">FICA+Medicare</th><th class="num">YTD net</th></tr>'+rows+'</table>';
+        +'</td><td class="num">'+usd.format(r2(a.state))+'</td><td class="num">'+usd.format(r2(a.fica+a.medicare+a.addl))+'</td><td class="num">'+usd.format(r2(a.net))
+        +'</td><td class="num"><button class="link" data-w2="'+e.id+'">W-2</button></td></tr>'; }).join("");
+    yr.innerHTML = '<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Fed w/h</th><th class="num">State w/h</th><th class="num">FICA+Medicare</th><th class="num">YTD net</th><th></th></tr>'+rows+'</table>';
+    yr.querySelectorAll("[data-w2]").forEach(function(b){ b.onclick=function(){ showW2(b.dataset.w2); }; });
   }
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
+
+  function ytdAgg(empId){
+    var a={gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
+    state.runs.forEach(function(r){ r.slips.forEach(function(s){ if(s.id===empId){
+      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; } }); });
+    return a;
+  }
+  function showW2(empId){
+    var e = state.employees.filter(function(x){return x.id===empId;})[0]; if(!e) return;
+    var a = ytdAgg(empId);
+    var ssWages = a.fica>0 ? r2(a.fica/0.062) : 0;
+    var year = state.runs.length ? Math.max.apply(null, state.runs.map(function(r){return Number((r.date||"").slice(0,4))||0;})) : new Date().getFullYear();
+    function box(n,label,val){ return '<div class="w2box"><div class="w2n">'+n+'  '+label+'</div><div class="w2v">'+val+'</div></div>'; }
+    el("w2").innerHTML =
+      '<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      + '<h2>Form W-2 (preview) — '+year+'</h2>'
+      + '<div><button class="btn" id="w2print">Print</button> <button class="btn" id="w2close">Close</button></div></div>'
+      + '<div class="pill" style="margin-bottom:10px">Employer: '+esc(state.company)+' · Employee: '+esc(e.name)+(e.state?(' · State '+esc(e.state)):'')+'</div>'
+      + '<div class="w2grid">'
+      + box("1","Wages, tips, other comp.", usd.format(r2(a.gross)))
+      + box("2","Federal income tax withheld", usd.format(r2(a.fed)))
+      + box("3","Social Security wages", usd.format(ssWages))
+      + box("4","Social Security tax withheld", usd.format(r2(a.fica)))
+      + box("5","Medicare wages and tips", usd.format(r2(a.gross)))
+      + box("6","Medicare tax withheld", usd.format(r2(a.medicare+a.addl)))
+      + box("16","State wages, tips, etc.", usd.format(r2(a.gross)))
+      + box("17","State income tax", usd.format(r2(a.state)))
+      + '</div>'
+      + '<div class="pill" style="margin-top:10px">Preview only — not an official IRS form. Box 1 assumes no pre-tax deductions.</div></div>';
+    el("w2").style.display="block";
+    el("w2print").onclick=function(){ document.body.classList.add("w2print"); window.print(); document.body.classList.remove("w2print"); };
+    el("w2close").onclick=function(){ el("w2").style.display="none"; };
+    el("w2").scrollIntoView({behavior:"smooth"});
+  }
 
   el("ePayType").onchange = function(){
     var hourly = this.value==="hourly";

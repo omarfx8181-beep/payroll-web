@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Payroll — International</title>
+<style>
+  :root{ --bg:#f5f4ef; --card:#fff; --soft:#faf9f5; --line:#e6e4db; --txt:#1f1f1d; --mut:#6b6a64;
+    --accent:#185fa5; --accent-bg:#e6f1fb; --danger:#a32d2d; --ok:#3b6d11; --r:10px;
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+  @media (prefers-color-scheme:dark){:root{ --bg:#1c1b19; --card:#2a2926; --soft:#232220; --line:#3a3935; --txt:#f1efe8;
+    --mut:#a8a69d; --accent:#85b7eb; --accent-bg:#0c447c; --danger:#f09595; --ok:#97c459; }}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--txt);font:400 16px/1.5 var(--font);padding:16px;-webkit-text-size-adjust:100%}
+  .wrap{max-width:480px;margin:0 auto}
+  .head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .logo{width:38px;height:38px;border-radius:10px;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px}
+  h1{font-size:17px;font-weight:600;margin:0} .sub{font-size:13px;color:var(--mut)}
+  .note{font-size:12px;color:var(--mut);background:var(--soft);border:0.5px solid var(--line);border-radius:var(--r);padding:8px 11px;margin:12px 0}
+  .card{background:var(--card);border:0.5px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  label{display:block;font-size:13px;color:var(--mut);margin:0 0 5px}
+  input,select{width:100%;font:inherit;font-size:16px;padding:9px 11px;border:0.5px solid var(--line);border-radius:var(--r);background:var(--bg);color:var(--txt)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .r{display:flex;justify-content:space-between;align-items:center;padding:5px 0;font-size:15px}
+  .r .l{color:var(--mut)} .r .v{color:var(--txt);font-variant-numeric:tabular-nums} .neg .v{color:var(--danger)}
+  .divider{border-top:0.5px solid var(--line);margin:10px 0}
+  .net .l{font-weight:600;color:var(--txt)} .net .v{font-weight:700;font-size:20px}
+  .small{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)} .small .v{color:var(--txt);font-weight:600}
+  .sec{font-size:13px;color:var(--mut);margin-bottom:8px}
+  a{color:var(--accent)} .foot{font-size:12px;color:var(--mut);text-align:center;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div class="logo">🌐</div>
+    <div><h1>Payroll — international</h1><div class="sub">one engine, many countries</div></div>
+  </div>
+  <div class="note">
+    Multi-country gross-to-net from the same verified PayrollCore engine — a country is just data.
+    Figures: US 2026, UK 2025/26 (England), Canada 2025 (federal only). Estimates, not tax advice; every
+    pack is <code>verified:false</code> pending accountant sign-off. Kenya demo: <a href="kenya.html">kenya.html</a> · US app: <a href="./">payroll app</a>.
+  </div>
+
+  <div class="card">
+    <div class="grid2">
+      <div><label>Country</label>
+        <select id="country">
+          <option value="US">United States (USD)</option>
+          <option value="GB">United Kingdom (GBP)</option>
+          <option value="CA">Canada (CAD)</option>
+        </select>
+      </div>
+      <div><label>Pay frequency</label>
+        <select id="freq"><option value="weekly">Weekly</option><option value="biweekly">Biweekly</option><option value="semimonthly">Semimonthly</option><option value="monthly">Monthly</option></select>
+      </div>
+      <div style="grid-column:1/3"><label id="grossLabel">Gross pay per period</label><input id="gross" type="number" min="0" step="100" value="5000" inputmode="decimal" /></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec" id="slipTitle">Payslip</div>
+    <div id="lines"></div>
+    <div class="divider"></div>
+    <div class="r net"><span class="l">Net pay</span><span class="v" id="net">—</span></div>
+  </div>
+
+  <div class="card">
+    <div class="small"><span>Employer cost (gross + employer contributions)</span><span class="v" id="empcost">—</span></div>
+  </div>
+
+  <div class="foot">Stored nowhere — computed live in your browser.</div>
+</div>
+
+<script>
+(function(){
+  var PERIODS = { weekly:52, biweekly:26, semimonthly:24, monthly:12 };
+  function r2(x){ return Math.round(x*100)/100; }
+
+  // Generic annualize → deduction → progressive bands → de-annualize (mirrors the engine formula).
+  function bandsTax(gross, periods, deduction, bands){
+    var annual = gross*periods, taxable = Math.max(0, annual-deduction), tax=0, low=0;
+    for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1];
+      if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; }
+    return r2(tax/periods);
+  }
+
+  var CT = {
+    US: { name:"United States", cur:"USD", loc:"en-US", def:"biweekly", compute:function(g,p){
+      var fica=r2(g*0.062), medicare=r2(g*0.0145);
+      var fed=bandsTax(g,p,16100,[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]]);
+      var ee=[["Social Security",fica],["Medicare",medicare],["Federal withholding (single)",fed]];
+      var net=r2(g - fica - medicare - fed);
+      var empr=r2(fica + medicare); // FICA/Medicare match (FUTA/SUTA shown in the full US app)
+      return { ee:ee, net:net, empr:empr };
+    }},
+    GB: { name:"United Kingdom", cur:"GBP", loc:"en-GB", def:"monthly", compute:function(g,p){
+      var tax=bandsTax(g,p,12570,[[37700,.20],[112570,.40],[Infinity,.45]]);
+      var ni=bandsTax(g,p,0,[[12570,0],[50270,.08],[Infinity,.02]]);
+      var enni=bandsTax(g,p,0,[[5000,0],[Infinity,.15]]);
+      return { ee:[["Income Tax (PAYE)",tax],["National Insurance",ni]], net:r2(g-tax-ni), empr:r2(enni) };
+    }},
+    CA: { name:"Canada", cur:"CAD", loc:"en-CA", def:"monthly", compute:function(g,p){
+      var fed=bandsTax(g,p,16129,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]);
+      var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
+      var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
+      return { ee:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], net:r2(g-fed-cpp-ei), empr:0 };
+    }}
+  };
+
+  function el(id){ return document.getElementById(id); }
+  function money(loc,cur,n){ return new Intl.NumberFormat(loc,{style:"currency",currency:cur}).format(r2(n)); }
+
+  function render(){
+    var c = CT[el("country").value];
+    var p = PERIODS[el("freq").value] || 26;
+    var g = Math.max(0, Number(el("gross").value)||0);
+    var res = c.compute(g, p);
+    el("slipTitle").textContent = c.name + " · payslip";
+    var rows = '<div class="r"><span class="l">Gross pay</span><span class="v">'+money(c.loc,c.cur,g)+'</span></div>';
+    res.ee.forEach(function(x){ rows += '<div class="r neg"><span class="l">'+x[0]+'</span><span class="v">−'+money(c.loc,c.cur,x[1])+'</span></div>'; });
+    el("lines").innerHTML = rows;
+    el("net").textContent = money(c.loc,c.cur,res.net);
+    el("empcost").textContent = money(c.loc,c.cur,g + res.empr);
+  }
+  function onCountry(){ el("freq").value = CT[el("country").value].def; render(); }
+  el("country").addEventListener("change", onCountry);
+  el("freq").addEventListener("change", render);
+  el("gross").addEventListener("input", render);
+  onCountry();
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,8 @@
-# Kenya payroll — prototype
+# Payroll — web app (prototype)
 
-A self-contained, client-side prototype of the run-payroll screen. The math mirrors the
-verified `PayrollCore` Swift engine (golden check at KES 50,000 → PAYE 5,846, net 39,029).
-UI demo only — no real data and no backend.
+A self-contained, client-side US payroll web app: employees, pay runs, payslips, a
+register, and year-end W-2 figures (stored only in your browser). 2026 IRS/SSA figures;
+single-filer federal withholding; not tax advice — verify with a CPA. Math mirrors the
+verified PayrollCore Swift engine.
+
+Kenya reference prototype: `/kenya.html`.

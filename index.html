@@ -79,10 +79,10 @@
   </div>
 
   <div class="note">
-    Prototype using 2026 IRS/SSA figures (Social Security wage base $184,500, Medicare 1.45%, Additional
-    Medicare 0.9% over $200,000, single-filer federal withholding with a $16,100 standard deduction). Federal
-    withholding is single-filer standard method only and excludes state/local tax. Not tax advice — verify with
-    a CPA. Mirrors the verified PayrollCore engine.
+    Prototype using 2026 IRS/SSA figures (Social Security wage base $184,500; Medicare 1.45%; Additional
+    Medicare 0.9% over $200,000; federal withholding for single, married-filing-jointly, and head-of-household
+    with 2026 standard deductions). State income tax is a simple flat per-employee rate you enter — a rough
+    estimate, not real state brackets or rules. Not tax advice — verify with a CPA. Mirrors the verified PayrollCore engine.
   </div>
 
   <nav>
@@ -106,6 +106,8 @@
         <div><label>Filing status</label>
           <select id="eStatus"><option value="single" selected>Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select>
         </div>
+        <div><label>Home state</label><input id="eState" type="text" maxlength="2" placeholder="CA" style="text-transform:uppercase" /></div>
+        <div><label>State tax rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
         <div><label id="eAmtLabel">Annual salary (USD)</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
         <div id="eHoursWrap" style="display:none"><label>Hours per period</label><input id="eHours" type="number" min="0" step="1" placeholder="80" inputmode="numeric" /></div>
       </div>
@@ -172,7 +174,7 @@
     marriedFilingJointly: { std: 32200, bands: [[24800,.10],[100800,.12],[211400,.22],[403550,.24],[512450,.32],[768700,.35],[Infinity,.37]] },
     headOfHousehold: { std: 24150, bands: [[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]] }
   };
-  function computeUS(gross, ytdGross, freq, status){
+  function computeUS(gross, ytdGross, freq, status, statePct){
     var p = PERIODS[freq] || 26;
     var cfg = FED[status] || FED.single;
     var WB = 184500, FLOOR = 200000, STD = cfg.std, bands = cfg.bands;
@@ -186,10 +188,11 @@
     for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1];
       if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; }
     var fed = tax / p;
-    var ee = { fica:r2(fica), medicare:r2(medicare), addl:r2(addl), fed:r2(fed) };
-    var net = r2(gross) - (ee.fica + ee.medicare + ee.addl + ee.fed);
+    var state = gross * ((statePct||0)/100);
+    var ee = { fica:r2(fica), medicare:r2(medicare), addl:r2(addl), fed:r2(fed), state:r2(state) };
+    var net = r2(gross) - (ee.fica + ee.medicare + ee.addl + ee.fed + ee.state);
     var employer = ee.fica + ee.medicare;
-    return { gross:r2(gross), fica:ee.fica, medicare:ee.medicare, addl:ee.addl, fed:ee.fed, net:r2(net), employer:r2(employer) };
+    return { gross:r2(gross), fica:ee.fica, medicare:ee.medicare, addl:ee.addl, fed:ee.fed, state:ee.state, net:r2(net), employer:r2(employer) };
   }
 
   function el(id){ return document.getElementById(id); }
@@ -223,11 +226,12 @@
     if(!payslips.length){ box.innerHTML = '<div class="card"><div class="empty">No employees to pay. Add employees first.</div></div>'; return; }
     var tg=0,tn=0,te=0,tt=0;
     var cards = payslips.map(function(s){
-      tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.fica+s.medicare+s.addl+s.fed);
+      tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.fica+s.medicare+s.addl+s.fed+s.state);
       return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+'</span><span class="pill">'+usd.format(s.gross)+' gross</span></div>'
         + line("Social Security", s.fica, true) + line("Medicare", s.medicare, true)
         + (s.addl>0?line("Additional Medicare", s.addl, true):"")
         + line("Federal withholding", s.fed, true)
+        + (s.state>0?line("State withholding", s.state, true):"")
         + '<div class="liner net"><span>Net pay</span><span class="v">'+usd.format(s.net)+'</span></div></div>';
     }).join("");
     var head = '<div class="card"><h2>'+(finalized?"Run finalized":"Payroll preview")+'</h2>'
@@ -251,7 +255,7 @@
     var date = el("rDate").value || new Date().toISOString().slice(0,10);
     var slips = state.employees.map(function(e){
       var g = grossFor(e);
-      var c = computeUS(g, e.ytdGross||0, e.freq, e.filingStatus);
+      var c = computeUS(g, e.ytdGross||0, e.freq, e.filingStatus, e.stateRatePct);
       c.name = e.name; c.id = e.id; return c;
     });
     window._currentRun = { date:date, slips:slips };
@@ -284,12 +288,12 @@
     if(!state.employees.length){ yr.innerHTML='<div class="empty">No employees.</div>'; return; }
     var agg = {};
     state.runs.forEach(function(r){ r.slips.forEach(function(s){
-      var a = agg[s.id] || (agg[s.id]={name:s.name, gross:0, fica:0, medicare:0, addl:0, fed:0, net:0});
-      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.net+=s.net; }); });
-    var rows = state.employees.map(function(e){ var a = agg[e.id] || {name:e.name,gross:0,fica:0,medicare:0,addl:0,fed:0,net:0};
+      var a = agg[s.id] || (agg[s.id]={name:s.name, gross:0, fica:0, medicare:0, addl:0, fed:0, state:0, net:0});
+      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; }); });
+    var rows = state.employees.map(function(e){ var a = agg[e.id] || {name:e.name,gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
       return '<tr><td>'+esc(e.name)+'</td><td class="num">'+usd.format(r2(a.gross))+'</td><td class="num">'+usd.format(r2(a.fed))
-        +'</td><td class="num">'+usd.format(r2(a.fica+a.medicare+a.addl))+'</td><td class="num">'+usd.format(r2(a.net))+'</td></tr>'; }).join("");
-    yr.innerHTML = '<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Fed w/h</th><th class="num">FICA+Medicare</th><th class="num">YTD net</th></tr>'+rows+'</table>';
+        +'</td><td class="num">'+usd.format(r2(a.state))+'</td><td class="num">'+usd.format(r2(a.fica+a.medicare+a.addl))+'</td><td class="num">'+usd.format(r2(a.net))+'</td></tr>'; }).join("");
+    yr.innerHTML = '<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Fed w/h</th><th class="num">State w/h</th><th class="num">FICA+Medicare</th><th class="num">YTD net</th></tr>'+rows+'</table>';
   }
 
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
@@ -305,6 +309,8 @@
     el("ePayType").value=e.payType; el("ePayType").onchange();
     el("eFreq").value=e.freq;
     el("eStatus").value = e.filingStatus || "single";
+    el("eState").value = e.state || "";
+    el("eStateRate").value = e.stateRatePct || 0;
     el("eAmt").value = (e.payType==="hourly") ? (e.rate||0) : (e.annual||0);
     if(e.payType==="hourly") el("eHours").value = e.hours||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
@@ -315,11 +321,11 @@
     var hourly = el("ePayType").value==="hourly";
     var amt = Number(el("eAmt").value)||0;
     var fields = { name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
-      filingStatus: el("eStatus").value,
+      filingStatus: el("eStatus").value, state: el("eState").value.trim().toUpperCase(), stateRatePct: Number(el("eStateRate").value)||0,
       annual: hourly?0:amt, rate: hourly?amt:0, hours: hourly?(Number(el("eHours").value)||0):0 };
     if(editingId){
       var ex = state.employees.filter(function(x){return x.id===editingId;})[0];
-      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.filingStatus=fields.filingStatus; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
+      if(ex){ ex.name=fields.name; ex.dept=fields.dept; ex.payType=fields.payType; ex.freq=fields.freq; ex.filingStatus=fields.filingStatus; ex.state=fields.state; ex.stateRatePct=fields.stateRatePct; ex.annual=fields.annual; ex.rate=fields.rate; ex.hours=fields.hours; }
       editingId=null; el("eAdd").textContent="Add employee";
     } else {
       fields.id=uid(); fields.ytdGross=0; state.employees.push(fields);
@@ -329,9 +335,9 @@
   el("rRun").onclick = runPayroll;
   el("seedBtn").onclick = function(){
     state.employees = [
-      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", annual:130000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", annual:78000, rate:0, hours:0, ytdGross:0 },
-      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", annual:0, rate:32, hours:80, ytdGross:0 }
+      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:6, annual:130000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", state:"TX", stateRatePct:0, annual:78000, rate:0, hours:0, ytdGross:0 },
+      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:5, annual:0, rate:32, hours:80, ytdGross:0 }
     ];
     save(); renderEmployees(); show("employees");
   };
@@ -340,11 +346,11 @@
   el("coName").onclick = function(){ var n = prompt("Company name", state.company); if(n!==null){ state.company = (n.trim()||state.company); save(); el("coName").textContent = state.company; } };
   el("csvBtn").onclick = function(){
     var agg={}; state.runs.forEach(function(r){ r.slips.forEach(function(s){
-      var a=agg[s.id]||(agg[s.id]={gross:0,fica:0,medicare:0,addl:0,fed:0,net:0});
-      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.net+=s.net; }); });
-    var rows=[["Employee","YTD gross","Social Security","Medicare","Additional Medicare","Federal withholding","YTD net"]];
-    state.employees.forEach(function(e){ var a=agg[e.id]||{gross:0,fica:0,medicare:0,addl:0,fed:0,net:0};
-      rows.push([e.name, r2(a.gross), r2(a.fica), r2(a.medicare), r2(a.addl), r2(a.fed), r2(a.net)]); });
+      var a=agg[s.id]||(agg[s.id]={gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0});
+      a.gross+=s.gross; a.fica+=s.fica; a.medicare+=s.medicare; a.addl+=s.addl; a.fed+=s.fed; a.state+=(s.state||0); a.net+=s.net; }); });
+    var rows=[["Employee","YTD gross","Social Security","Medicare","Additional Medicare","Federal withholding","State withholding","YTD net"]];
+    state.employees.forEach(function(e){ var a=agg[e.id]||{gross:0,fica:0,medicare:0,addl:0,fed:0,state:0,net:0};
+      rows.push([e.name, r2(a.gross), r2(a.fica), r2(a.medicare), r2(a.addl), r2(a.fed), r2(a.state), r2(a.net)]); });
     var csv=rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(","); }).join("\n");
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}); var url=URL.createObjectURL(blob);
     var a=document.createElement("a"); a.href=url; a.download="payroll-ytd.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);

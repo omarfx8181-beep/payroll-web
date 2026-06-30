@@ -173,7 +173,7 @@
     CA:{ name:"Canada", cur:"CAD", loc:"en-CA",
       note:"Canada 2025 FEDERAL only (no provincial tax): brackets 14.5–33% with $16,129 BPA, CPP+CPP2, EI 1.64%. Annualized estimate; not tax advice.",
       compute:function(e,g,ytd,p){
-        var fed=bandsTax(g,p,16129,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]);
+        var fed=Math.max(0, r2(bandsTax(g,p,0,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]) - 16129*0.145/p));
         var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
         var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
         return { eLines:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], employer:0, net:r2(g-fed-cpp-ei) };
@@ -203,11 +203,13 @@
   function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
   function uid(){ return "e"+Math.random().toString(36).slice(2,9); }
   function ctry(){ return COUNTRIES[state.country] || COUNTRIES.US; }
-  function money(n){ return new Intl.NumberFormat(ctry().loc,{style:"currency",currency:ctry().cur}).format(r2(n)); }
+  function fmtCur(loc,cur,n){ var v=Number(n); if(!isFinite(v)) v=0; return new Intl.NumberFormat(loc,{style:"currency",currency:cur}).format(r2(v)); }
+  function money(n){ return fmtCur(ctry().loc,ctry().cur,n); }
+  function moneyC(cc,n){ var c=COUNTRIES[cc]||COUNTRIES.US; return fmtCur(c.loc,c.cur,n); }
   function el(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
-  function grossFor(e){ var p=PERIODS[e.freq]||26; return e.payType==="hourly" ? (e.rate||0)*(e.hours||0) : (e.annual||0)/p; }
+  function grossFor(e){ var p=PERIODS[e.freq]||26; return Math.max(0, e.payType==="hourly" ? (e.rate||0)*(e.hours||0) : (e.annual||0)/p); }
   function computeFor(e){ return ctry().compute(e, grossFor(e), e.ytdGross||0, PERIODS[e.freq]||26); }
 
   function show(tab){ ["employees","run","reports"].forEach(function(t){ el("tab-"+t).style.display=(t===tab?"block":"none"); });
@@ -277,18 +279,18 @@
     save(); renderEmployees(); renderRun(slips, true);
   }
 
-  function ytdAgg(empId){ var a={gross:0,net:0,lines:{}}; state.runs.forEach(function(r){ r.slips.forEach(function(s){ if(s.id===empId){ a.gross+=s.gross; a.net+=s.net; s.eLines.forEach(function(x){ a.lines[x[0]]=(a.lines[x[0]]||0)+x[1]; }); } }); }); return a; }
+  function ytdAgg(empId){ var a={gross:0,net:0,lines:{},country:state.country}; state.runs.forEach(function(r){ var inRun=false; r.slips.forEach(function(s){ if(s.id===empId){ inRun=true; a.gross+=s.gross; a.net+=s.net; s.eLines.forEach(function(x){ a.lines[x[0]]=(a.lines[x[0]]||0)+x[1]; }); } }); if(inRun) a.country=r.country||"US"; }); return a; }
 
   function renderReports(){
     var rh=el("runHistory");
     rh.innerHTML = !state.runs.length ? '<div class="empty">No finalized runs yet.</div>' :
       '<table><tr><th>Pay date</th><th>Country</th><th class="num">Employees</th><th class="num">Gross</th><th class="num">Net</th></tr>'
-      + state.runs.slice().reverse().map(function(r){ var tg=0,tn=0; r.slips.forEach(function(s){tg+=s.gross;tn+=s.net;});
-        return '<tr><td>'+esc(r.date)+'</td><td>'+esc(r.country||"US")+'</td><td class="num">'+r.count+'</td><td class="num">'+money(tg)+'</td><td class="num">'+money(tn)+'</td></tr>'; }).join("")+'</table>';
+      + state.runs.slice().reverse().map(function(r){ var tg=0,tn=0; r.slips.forEach(function(s){tg+=s.gross;tn+=s.net;}); var rc=r.country||"US";
+        return '<tr><td>'+esc(r.date)+'</td><td>'+esc(rc)+'</td><td class="num">'+r.count+'</td><td class="num">'+moneyC(rc,tg)+'</td><td class="num">'+moneyC(rc,tn)+'</td></tr>'; }).join("")+'</table>';
     var yr=el("ytdReport");
     if(!state.employees.length){ yr.innerHTML='<div class="empty">No employees.</div>'; return; }
     var rows=state.employees.map(function(e){ var a=ytdAgg(e.id);
-      return '<tr><td>'+esc(e.name)+'</td><td class="num">'+money(a.gross)+'</td><td class="num">'+money(a.gross-a.net)+'</td><td class="num">'+money(a.net)+'</td>'
+      return '<tr><td>'+esc(e.name)+'</td><td class="num">'+moneyC(a.country,a.gross)+'</td><td class="num">'+moneyC(a.country,a.gross-a.net)+'</td><td class="num">'+moneyC(a.country,a.net)+'</td>'
         +'<td class="num"><button class="link" data-ye="'+e.id+'">Year-end</button></td></tr>'; }).join("");
     yr.innerHTML='<table><tr><th>Employee</th><th class="num">YTD gross</th><th class="num">Deductions</th><th class="num">Net</th><th></th></tr>'+rows+'</table>';
     yr.querySelectorAll("[data-ye]").forEach(function(b){ b.onclick=function(){ showYearEnd(b.dataset.ye); }; });
@@ -296,15 +298,15 @@
 
   function showYearEnd(empId){
     var e=state.employees.filter(function(x){return x.id===empId;})[0]; if(!e) return;
-    var a=ytdAgg(empId);
+    var a=ytdAgg(empId); var cc=a.country, ci=COUNTRIES[cc]||ctry();
     var year = state.runs.length ? Math.max.apply(null, state.runs.map(function(r){return Number((r.date||"").slice(0,4))||0;})) : new Date().getFullYear();
-    var rows=Object.keys(a.lines).map(function(k){ return '<div class="small" style="margin-top:6px"><span>'+esc(k)+'</span><span class="v">'+money(a.lines[k])+'</span></div>'; }).join("");
+    var rows=Object.keys(a.lines).map(function(k){ return '<div class="small" style="margin-top:6px"><span>'+esc(k)+'</span><span class="v">'+moneyC(cc,a.lines[k])+'</span></div>'; }).join("");
     el("ye").innerHTML='<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
-      +'<h2>Year-end summary — '+ctry().name+' '+year+'</h2><div><button class="btn" id="yePrint">Print</button> <button class="btn" id="yeClose">Close</button></div></div>'
+      +'<h2>Year-end summary — '+ci.name+' '+year+'</h2><div><button class="btn" id="yePrint">Print</button> <button class="btn" id="yeClose">Close</button></div></div>'
       +'<div class="pill" style="margin-bottom:10px">Employer: '+esc(state.company)+' · Employee: '+esc(e.name)+'</div>'
-      +'<div class="small"><span>Gross pay (YTD)</span><span class="v">'+money(a.gross)+'</span></div>'+rows
-      +'<div class="liner net" style="margin-top:8px"><span>Net pay (YTD)</span><span class="v">'+money(a.net)+'</span></div>'
-      +'<div class="pill" style="margin-top:10px">Preview only — not an official statutory form ('+(ctry().us?"W-2":"P60/T4/etc.")+').</div></div>';
+      +'<div class="small"><span>Gross pay (YTD)</span><span class="v">'+moneyC(cc,a.gross)+'</span></div>'+rows
+      +'<div class="liner net" style="margin-top:8px"><span>Net pay (YTD)</span><span class="v">'+moneyC(cc,a.net)+'</span></div>'
+      +'<div class="pill" style="margin-top:10px">Preview only — not an official statutory form ('+(ci.us?"W-2":"P60/T4/etc.")+').</div></div>';
     el("ye").style.display="block";
     el("yePrint").onclick=function(){ document.body.classList.add("yeprint"); window.print(); document.body.classList.remove("yeprint"); };
     el("yeClose").onclick=function(){ el("ye").style.display="none"; };
@@ -315,20 +317,23 @@
     el("eName").value=e.name; el("eDept").value=e.dept||""; el("ePayType").value=e.payType; el("ePayType").onchange();
     el("eFreq").value=e.freq; el("eAmt").value=(e.payType==="hourly")?(e.rate||0):(e.annual||0);
     if(e.payType==="hourly") el("eHours").value=e.hours||0;
-    el("eStatus").value=e.filingStatus||"single"; el("eState").value=e.state||""; el("eStateRate").value=e.stateRatePct||0;
+    el("eStatus").value=e.filingStatus||"single"; el("eStateRate").value=e.stateRatePct||0;
     el("ePretax").value=e.pretax||0; el("ePosttax").value=e.posttax||0; el("eSuta").value=e.sutaRatePct||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
     try{ el("eName").scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
   }
 
-  el("ePayType").onchange=function(){ var hourly=this.value==="hourly"; el("eHoursWrap").style.display=hourly?"block":"none"; el("eAmtLabel").textContent=hourly?"Hourly rate":"Annual salary"; };
+  el("ePayType").onchange=function(){ var hourly=this.value==="hourly"; el("eHoursWrap").style.display=hourly?"block":"none"; el("eAmtLabel").textContent=hourly?"Hourly rate":"Annual salary"; el("eAmt").value=""; };
   el("eAdd").onclick=function(){
     var name=el("eName").value.trim(); if(!name){ el("eName").focus(); return; }
-    var hourly=el("ePayType").value==="hourly", amt=Number(el("eAmt").value)||0;
+    var hourly=el("ePayType").value==="hourly", amt=Math.max(0,Number(el("eAmt").value)||0);
+    var hrs=hourly?Math.max(0,Number(el("eHours").value)||0):0;
+    if(hourly && (amt<=0 || hrs<=0)){ alert("Enter a positive hourly rate and hours per period."); el(amt<=0?"eAmt":"eHours").focus(); return; }
+    if(!hourly && amt<=0){ alert("Enter a positive annual salary."); el("eAmt").focus(); return; }
     var f={ name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
-      filingStatus:el("eStatus").value, state:el("eState").value.trim().toUpperCase(), stateRatePct:Number(el("eStateRate").value)||0,
-      pretax:Number(el("ePretax").value)||0, posttax:Number(el("ePosttax").value)||0, sutaRatePct:Number(el("eSuta").value)||0,
-      annual:hourly?0:amt, rate:hourly?amt:0, hours:hourly?(Number(el("eHours").value)||0):0 };
+      filingStatus:el("eStatus").value, stateRatePct:Math.max(0,Number(el("eStateRate").value)||0),
+      pretax:Math.max(0,Number(el("ePretax").value)||0), posttax:Math.max(0,Number(el("ePosttax").value)||0), sutaRatePct:Math.max(0,Number(el("eSuta").value)||0),
+      annual:hourly?0:amt, rate:hourly?amt:0, hours:hrs };
     if(editingId){ var ex=state.employees.filter(function(x){return x.id===editingId;})[0];
       if(ex){ for(var k in f){ ex[k]=f[k]; } } editingId=null; el("eAdd").textContent="Add employee"; }
     else { f.id=uid(); f.ytdGross=0; state.employees.push(f); }
@@ -348,8 +353,8 @@
   el("resetBtn").onclick=function(){ if(confirm("Delete all employees and runs on this device?")){ state={country:state.country,company:"My Company",employees:[],runs:[]}; save(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; el("ye").style.display="none"; } };
   el("csvBtn").onclick=function(){
     var rows=[["Employee","YTD gross","YTD deductions","YTD net","Currency"]];
-    state.employees.forEach(function(e){ var a=ytdAgg(e.id); rows.push([e.name, r2(a.gross), r2(a.gross-a.net), r2(a.net), ctry().cur]); });
-    var csv=rows.map(function(row){ return row.map(function(c){ return '"'+String(c).replace(/"/g,'""')+'"'; }).join(","); }).join("\n");
+    state.employees.forEach(function(e){ var a=ytdAgg(e.id); rows.push([e.name, r2(a.gross), r2(a.gross-a.net), r2(a.net), (COUNTRIES[a.country]||ctry()).cur]); });
+    var csv=rows.map(function(row){ return row.map(function(c){ var s=String(c); if(/^[=+\-@\t\r]/.test(s)) s="'"+s; return '"'+s.replace(/"/g,'""')+'"'; }).join(","); }).join("\n");
     var blob=new Blob([csv],{type:"text/csv;charset=utf-8"}), url=URL.createObjectURL(blob);
     var a=document.createElement("a"); a.href=url; a.download="payroll-ytd.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };

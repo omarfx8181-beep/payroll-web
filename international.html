@@ -89,10 +89,13 @@
 
   var CT = {
     US: { name:"United States", cur:"USD", loc:"en-US", def:"biweekly", compute:function(g,p){
-      var fica=r2(g*0.062), medicare=r2(g*0.0145);
+      var fica=r2(0.062*Math.min(g, 184500/p)), medicare=r2(g*0.0145);
+      var addl=r2((Math.max(0, g*p - 200000)*0.009)/p);
       var fed=bandsTax(g,p,16100,[[12400,.10],[50400,.12],[105700,.22],[201775,.24],[256225,.32],[640600,.35],[Infinity,.37]]);
-      var ee=[["Social Security",fica],["Medicare",medicare],["Federal withholding (single)",fed]];
-      var net=r2(g - fica - medicare - fed);
+      var ee=[["Social Security",fica],["Medicare",medicare]];
+      if(addl>0) ee.push(["Additional Medicare",addl]);
+      ee.push(["Federal withholding (single)",fed]);
+      var net=r2(g - fica - medicare - addl - fed);
       var empr=r2(fica + medicare); // FICA/Medicare match (FUTA/SUTA shown in the full US app)
       return { ee:ee, net:net, empr:empr };
     }},
@@ -103,7 +106,7 @@
       return { ee:[["Income Tax (PAYE)",tax],["National Insurance",ni]], net:r2(g-tax-ni), empr:r2(enni) };
     }},
     CA: { name:"Canada", cur:"CAD", loc:"en-CA", def:"monthly", compute:function(g,p){
-      var fed=bandsTax(g,p,16129,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]);
+      var fed=Math.max(0, r2(bandsTax(g,p,0,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]) - 16129*0.145/p));
       var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
       var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
       return { ee:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], net:r2(g-fed-cpp-ei), empr:0 };
@@ -123,7 +126,7 @@
   };
 
   function el(id){ return document.getElementById(id); }
-  function money(loc,cur,n){ return new Intl.NumberFormat(loc,{style:"currency",currency:cur}).format(r2(n)); }
+  function money(loc,cur,n){ var v=Number(n); if(!isFinite(v)) v=0; return new Intl.NumberFormat(loc,{style:"currency",currency:cur}).format(r2(v)); }
 
   function render(){
     var c = CT[el("country").value];

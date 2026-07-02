@@ -242,24 +242,25 @@
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
         +'<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+extra+money(grossFor(e))+'/period</div></td>'
         +'<td class="num">'+money(ytdGrossFor(e.id, new Date().getFullYear()))+'<div class="pill">YTD gross</div></td>'
-        +'<td class="num"><button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
+        +'<td class="num"><button class="link" data-hist="'+e.id+'">History</button> <button class="link" data-edit="'+e.id+'">Edit</button> <button class="link del" data-del="'+e.id+'">Remove</button></td></tr>';
     }).join("");
     box.innerHTML='<table><tr><th>Name</th><th>Pay</th><th class="num">YTD</th><th></th></tr>'+rows+'</table>';
     box.querySelectorAll("[data-del]").forEach(function(b){ b.onclick=function(){ state.employees=state.employees.filter(function(x){return x.id!==b.dataset.del;}); save(); renderEmployees(); }; });
     box.querySelectorAll("[data-edit]").forEach(function(b){ b.onclick=function(){ var e=state.employees.filter(function(x){return x.id===b.dataset.edit;})[0]; if(e){ setFormForEdit(e); show("employees"); } }; });
+    box.querySelectorAll("[data-hist]").forEach(function(b){ b.onclick=function(){ showEmpHistory(b.dataset.hist); }; });
   }
 
-  function line(label,amt,neg){ return '<div class="liner '+(neg?"neg":"")+'"><span>'+esc(label)+'</span><span class="v">'+(neg?"−":"")+money(amt)+'</span></div>'; }
+  function slipCard(s, cc, dateLabel){
+    var ls=s.eLines.map(function(x){ return '<div class="liner neg"><span>'+esc(x[0])+'</span><span class="v">−'+moneyC(cc,x[1])+'</span></div>'; }).join("");
+    return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+(dateLabel?' <span class="pill">'+esc(dateLabel)+'</span>':'')+'</span><span class="pill">'+moneyC(cc,s.gross)+' gross</span></div>'
+      +ls+'<div class="liner net"><span>Net pay</span><span class="v">'+moneyC(cc,s.net)+'</span></div></div>';
+  }
 
   function renderRun(slips, finalized){
     var box=el("runOut"); if(!slips){ box.innerHTML=""; return; }
     if(!slips.length){ box.innerHTML='<div class="card"><div class="empty">No employees to pay. Add employees first.</div></div>'; return; }
     var tg=0,tn=0,te=0,tt=0;
-    var cards=slips.map(function(s){ tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.gross-s.net);
-      var ls=s.eLines.map(function(x){ return line(x[0],x[1],true); }).join("");
-      return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+'</span><span class="pill">'+money(s.gross)+' gross</span></div>'
-        +ls+'<div class="liner net"><span>Net pay</span><span class="v">'+money(s.net)+'</span></div></div>';
-    }).join("");
+    var cards=slips.map(function(s){ tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.gross-s.net); return slipCard(s, state.country); }).join("");
     var head='<div class="card"><h2>'+(finalized?"Run finalized":"Payroll preview")+'</h2>'
       +'<div class="totals"><div class="stat"><div class="k">Total gross</div><div class="val">'+money(tg)+'</div></div>'
       +'<div class="stat"><div class="k">Total net</div><div class="val">'+money(tn)+'</div></div>'
@@ -291,9 +292,12 @@
   function renderReports(){
     var rh=el("runHistory");
     rh.innerHTML = !state.runs.length ? '<div class="empty">No finalized runs yet.</div>' :
-      '<table><tr><th>Pay date</th><th>Country</th><th class="num">Employees</th><th class="num">Gross</th><th class="num">Net</th></tr>'
-      + state.runs.slice().reverse().map(function(r){ var tg=0,tn=0; r.slips.forEach(function(s){tg+=s.gross;tn+=s.net;}); var rc=r.country||"US";
-        return '<tr><td>'+esc(r.date)+'</td><td>'+esc(rc)+'</td><td class="num">'+r.count+'</td><td class="num">'+moneyC(rc,tg)+'</td><td class="num">'+moneyC(rc,tn)+'</td></tr>'; }).join("")+'</table>';
+      '<table><tr><th>Pay date</th><th>Country</th><th class="num">Employees</th><th class="num">Gross</th><th class="num">Net</th><th></th></tr>'
+      + state.runs.map(function(r,i){return {r:r,i:i};}).reverse().map(function(o){ var r=o.r, tg=0,tn=0; r.slips.forEach(function(s){tg+=s.gross;tn+=s.net;}); var rc=r.country||"US";
+        return '<tr><td>'+esc(r.date)+'</td><td>'+esc(rc)+'</td><td class="num">'+r.count+'</td><td class="num">'+moneyC(rc,tg)+'</td><td class="num">'+moneyC(rc,tn)+'</td>'
+          +'<td class="num"><button class="link" data-vrun="'+o.i+'">View</button> <button class="link del" data-xrun="'+o.i+'">Void</button></td></tr>'; }).join("")+'</table>';
+    rh.querySelectorAll("[data-vrun]").forEach(function(b){ b.onclick=function(){ showRunDetail(Number(b.dataset.vrun)); }; });
+    rh.querySelectorAll("[data-xrun]").forEach(function(b){ b.onclick=function(){ voidRun(Number(b.dataset.xrun)); }; });
     var yr=el("ytdReport");
     if(!state.employees.length){ yr.innerHTML='<div class="empty">No employees.</div>'; return; }
     var ytdYear=new Date().getFullYear();
@@ -315,10 +319,45 @@
       +'<div class="small"><span>Gross pay (YTD)</span><span class="v">'+moneyC(cc,a.gross)+'</span></div>'+rows
       +'<div class="liner net" style="margin-top:8px"><span>Net pay (YTD)</span><span class="v">'+moneyC(cc,a.net)+'</span></div>'
       +'<div class="pill" style="margin-top:10px">Preview only — not an official statutory form ('+(ci.us?"W-2":"P60/T4/etc.")+').</div></div>';
+    wireDetail();
+  }
+
+  // Shared detail panel (#ye): year-end summary, run detail, and payslip history.
+  function wireDetail(){
     el("ye").style.display="block";
     el("yePrint").onclick=function(){ document.body.classList.add("yeprint"); window.print(); document.body.classList.remove("yeprint"); };
     el("yeClose").onclick=function(){ el("ye").style.display="none"; };
     el("ye").scrollIntoView({behavior:"smooth"});
+  }
+  function detailHead(title){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><h2>'+title
+      +'</h2><div><button class="btn" id="yePrint">Print</button> <button class="btn" id="yeClose">Close</button></div></div>';
+  }
+
+  function showRunDetail(i){
+    var r=state.runs[i]; if(!r) return; var cc=r.country||"US";
+    var tg=0,tn=0; r.slips.forEach(function(s){ tg+=s.gross; tn+=s.net; });
+    el("ye").innerHTML='<div class="card">'+detailHead('Payroll run — '+esc(r.date)+' ('+esc(cc)+')')
+      +'<div class="totals" style="margin-bottom:10px"><div class="stat"><div class="k">Total gross</div><div class="val">'+moneyC(cc,tg)+'</div></div>'
+      +'<div class="stat"><div class="k">Total net</div><div class="val">'+moneyC(cc,tn)+'</div></div></div>'
+      +r.slips.map(function(s){ return slipCard(s, cc); }).join("")+'</div>';
+    wireDetail();
+  }
+
+  function voidRun(i){
+    var r=state.runs[i]; if(!r) return;
+    if(!confirm("Void the payroll run dated "+r.date+" ("+r.count+" employee(s))? This removes it permanently and recalculates YTD totals.")) return;
+    state.runs.splice(i,1); save(); el("ye").style.display="none"; renderReports(); renderEmployees();
+  }
+
+  function showEmpHistory(empId){
+    var e=state.employees.filter(function(x){return x.id===empId;})[0]; if(!e) return;
+    var items=[]; state.runs.forEach(function(r){ r.slips.forEach(function(s){ if(s.id===empId) items.push({date:r.date, cc:r.country||"US", s:s}); }); });
+    var body = items.length ? items.reverse().map(function(it){ return slipCard(it.s, it.cc, it.date); }).join("")
+      : '<div class="empty">No payslips yet — finalized payroll runs will appear here.</div>';
+    el("ye").innerHTML='<div class="card">'+detailHead('Payslip history — '+esc(e.name))
+      +'<div class="pill" style="margin-bottom:10px">'+items.length+' payslip(s), newest first · Employer: '+esc(state.company)+'</div>'+body+'</div>';
+    wireDetail();
   }
 
   function setFormForEdit(e){

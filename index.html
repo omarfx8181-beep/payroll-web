@@ -98,7 +98,8 @@
         <div><label id="eAmtLabel">Annual salary</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
         <div id="eHoursWrap" style="display:none"><label>Hours per period</label><input id="eHours" type="number" min="0" step="1" placeholder="80" inputmode="numeric" /></div>
         <div class="usf"><label>Filing status</label><select id="eStatus"><option value="single">Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select></div>
-        <div class="usf"><label>State tax rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
+        <div class="usf"><label>State</label><select id="eState"></select></div>
+        <div class="usf" id="eStateRateWrap"><label>Custom state rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
         <div class="usf"><label>Pre-tax 401(k) (/period)</label><input id="ePretax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
         <div class="usf"><label>Post-tax deduction (/period)</label><input id="ePosttax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
         <div class="usf"><label>SUTA rate (% employer)</label><input id="eSuta" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
@@ -142,9 +143,80 @@
   function bandsTax(g,p,d,bands){ var annual=g*p, taxable=Math.max(0,annual-d), tax=0, low=0;
     for(var i=0;i<bands.length;i++){ var up=bands[i][0], rt=bands[i][1]; if(taxable<=low) break; var s=Math.min(taxable,up)-low; if(s>0) tax+=s*rt; low=up; if(up===Infinity) break; } return r2(tax/p); }
 
+  // US state income tax, tax year 2026, SINGLE filer (wages).
+  // t: "n"=no wage tax, "f"=flat, "b"=progressive brackets over taxable income.
+  // r: flat rate %; b: [upper bound or null=Infinity, rate %]; d: standard deduction ($).
+  // Exemption credits and local income taxes are NOT modeled — estimates only.
+  var STATES = {
+    AK:{n:"Alaska",t:"n"},
+    AL:{n:"Alabama",t:"b",b:[[500,2],[3000,4],[null,5]],d:3000},
+    AR:{n:"Arkansas",t:"b",b:[[5599,0],[11199,2],[15999,3],[26399,3.4],[null,3.7]],d:2470},
+    AZ:{n:"Arizona",t:"f",r:2.5,d:16100},
+    CA:{n:"California",t:"b",b:[[11079,1],[26264,2],[41452,4],[57542,6],[72724,8],[371479,9.3],[445771,10.3],[742953,11.3],[null,12.3]],d:5706},
+    CO:{n:"Colorado",t:"f",r:4.4,d:16100},
+    CT:{n:"Connecticut",t:"b",b:[[10000,2],[50000,4.5],[100000,5.5],[200000,6],[250000,6.5],[500000,6.9],[null,6.99]]},
+    DC:{n:"District of Columbia",t:"b",b:[[10000,4],[40000,6],[60000,6.5],[250000,8.5],[500000,9.25],[1000000,9.75],[null,10.75]],d:16100},
+    DE:{n:"Delaware",t:"b",b:[[2000,0],[5000,2.2],[10000,3.9],[20000,4.8],[25000,5.2],[60000,5.55],[null,6.6]],d:3250},
+    FL:{n:"Florida",t:"n"},
+    GA:{n:"Georgia",t:"f",r:4.99,d:12000},
+    HI:{n:"Hawaii",t:"b",b:[[9600,1.4],[14400,3.2],[19200,5.5],[24000,6.4],[36000,6.8],[48000,7.2],[125000,7.6],[175000,7.9],[225000,8.25],[275000,9],[325000,10],[null,11]],d:8000},
+    IA:{n:"Iowa",t:"f",r:3.8,d:16100},
+    ID:{n:"Idaho",t:"f",r:5.3,d:16100},
+    IL:{n:"Illinois",t:"f",r:4.95},
+    IN:{n:"Indiana",t:"f",r:2.95},
+    KS:{n:"Kansas",t:"b",b:[[23000,5.2],[null,5.58]],d:3605},
+    KY:{n:"Kentucky",t:"f",r:3.5,d:3360},
+    LA:{n:"Louisiana",t:"f",r:3,d:12875},
+    MA:{n:"Massachusetts",t:"b",b:[[1107750,5],[null,9]]},
+    MD:{n:"Maryland",t:"b",b:[[1000,2],[2000,3],[3000,4],[100000,4.75],[125000,5],[150000,5.25],[250000,5.5],[500000,5.75],[1000000,6.25],[null,6.5]],d:3400},
+    ME:{n:"Maine",t:"b",b:[[27400,5.8],[64850,6.75],[null,7.15]],d:15300},
+    MI:{n:"Michigan",t:"f",r:4.25},
+    MN:{n:"Minnesota",t:"b",b:[[33310,5.35],[109430,6.8],[203150,7.85],[null,9.85]],d:15300},
+    MO:{n:"Missouri",t:"b",b:[[1313,0],[2626,2],[3939,2.5],[5252,3],[6565,3.5],[7878,4],[9191,4.5],[null,4.7]],d:16100},
+    MS:{n:"Mississippi",t:"b",b:[[10000,0],[null,4]],d:2300},
+    MT:{n:"Montana",t:"b",b:[[47500,4.7],[null,5.65]],d:16100},
+    NC:{n:"North Carolina",t:"f",r:3.99,d:12750},
+    ND:{n:"North Dakota",t:"b",b:[[48475,0],[244825,1.95],[null,2.5]],d:16100},
+    NE:{n:"Nebraska",t:"b",b:[[4030,2.46],[24120,3.51],[null,4.55]],d:8350},
+    NH:{n:"New Hampshire",t:"n"},
+    NJ:{n:"New Jersey",t:"b",b:[[20000,1.4],[35000,1.75],[40000,3.5],[75000,5.525],[500000,6.37],[1000000,8.97],[null,10.75]]},
+    NM:{n:"New Mexico",t:"b",b:[[5500,1.5],[16500,3.2],[33500,4.3],[66500,4.7],[210000,4.9],[null,5.9]],d:16100},
+    NV:{n:"Nevada",t:"n"},
+    NY:{n:"New York",t:"b",b:[[8500,3.9],[11700,4.4],[13900,5.15],[80650,5.4],[215400,5.9],[1077550,6.85],[5000000,9.65],[25000000,10.3],[null,10.9]],d:8000},
+    OH:{n:"Ohio",t:"b",b:[[26050,0],[null,2.75]]},
+    OK:{n:"Oklahoma",t:"b",b:[[3750,0],[4900,2.5],[7200,3.5],[null,4.5]],d:6350},
+    OR:{n:"Oregon",t:"b",b:[[4550,4.75],[11400,6.75],[125000,8.75],[null,9.9]],d:2910},
+    PA:{n:"Pennsylvania",t:"f",r:3.07},
+    RI:{n:"Rhode Island",t:"b",b:[[82050,3.75],[186450,4.75],[null,5.99]],d:11200},
+    SC:{n:"South Carolina",t:"b",b:[[30000,1.99],[null,5.21]],d:15000},
+    SD:{n:"South Dakota",t:"n"},
+    TN:{n:"Tennessee",t:"n"},
+    TX:{n:"Texas",t:"n"},
+    UT:{n:"Utah",t:"f",r:4.45},
+    VA:{n:"Virginia",t:"b",b:[[3000,2],[5000,3],[17000,5],[null,5.75]],d:8750},
+    VT:{n:"Vermont",t:"b",b:[[49400,3.35],[119700,6.6],[249700,7.6],[null,8.75]],d:7650},
+    WA:{n:"Washington",t:"n"},
+    WI:{n:"Wisconsin",t:"b",b:[[15110,3.5],[51950,4.4],[332720,5.3],[null,7.65]],d:14260},
+    WV:{n:"West Virginia",t:"b",b:[[10000,2.11],[25000,2.81],[40000,3.16],[60000,4.22],[null,4.58]]},
+    WY:{n:"Wyoming",t:"n"}
+  };
+  Object.keys(STATES).forEach(function(k){ var S=STATES[k];
+    if(S.t==="f") S.bands=[[Infinity,S.r/100]];
+    else if(S.t==="b") S.bands=S.b.map(function(x){ return [x[0]==null?Infinity:x[0], x[1]/100]; });
+  });
+
+  // Falls back to the legacy custom flat % for employees saved before state
+  // selection existed (state undefined) and for the explicit "custom" option.
+  function stateTaxFor(e,g,p){
+    var st = e.state!==undefined ? e.state : ((e.stateRatePct||0)>0 ? "custom" : "");
+    if(st==="custom") return r2(g*((e.stateRatePct||0)/100));
+    var S=STATES[st]; if(!S || !S.bands) return 0;
+    return bandsTax(Math.max(0,g-(e.pretax||0)), p, S.d||0, S.bands);
+  }
+
   var COUNTRIES = {
     US:{ name:"United States", cur:"USD", loc:"en-US", us:true,
-      note:"US 2026 figures (SS wage base $184,500, Medicare 1.45%, Add'l Medicare 0.9% over $200k, single/MFJ/HoH federal withholding). State tax flat rate; FUTA 0.6%/$7k + configurable SUTA. Not tax advice; verify with a CPA.",
+      note:"US 2026 figures (SS wage base $184,500, Medicare 1.45%, Add'l Medicare 0.9% over $200k, single/MFJ/HoH federal withholding). State tax uses the latest published (2025–26) single-filer brackets & standard deductions (local taxes and exemption credits not modeled); FUTA 0.6%/$7k + configurable SUTA. Not tax advice; verify with a CPA.",
       compute:function(e,g,ytd,p){
         var fica=r2(0.062*Math.min(g,Math.max(0,184500-ytd)));
         var medicare=r2(0.0145*g);
@@ -154,12 +226,12 @@
                   headOfHousehold:{std:24150,b:[[17700,.10],[67450,.12],[105700,.22],[201775,.24],[256200,.32],[640600,.35],[Infinity,.37]]} };
         var cfg=FED[e.filingStatus]||FED.single;
         var fed=bandsTax(Math.max(0,g-(e.pretax||0)),p,cfg.std,cfg.b);
-        var state=r2(g*((e.stateRatePct||0)/100)), pre=r2(e.pretax||0), post=r2(e.posttax||0);
+        var state=stateTaxFor(e,g,p), pre=r2(e.pretax||0), post=r2(e.posttax||0);
         var empBase=Math.min(g,Math.max(0,7000-ytd)); var futa=r2(0.006*empBase), suta=r2(((e.sutaRatePct||0)/100)*empBase);
         var L=[["Social Security",fica],["Medicare",medicare]];
         if(addl>0) L.push(["Additional Medicare",addl]);
         L.push(["Federal withholding",fed]);
-        if(state>0) L.push(["State withholding",state]);
+        if(state>0) L.push(["State withholding"+(STATES[e.state]?" ("+e.state+")":""),state]);
         if(pre>0) L.push(["Pre-tax 401(k)",pre]);
         if(post>0) L.push(["Post-tax deduction",post]);
         return { eLines:L, employer:r2(fica+medicare+futa+suta), net:r2(g-(fica+medicare+addl+fed+state+pre+post)) };
@@ -230,7 +302,10 @@
     el("country").value = state.country;
     el("eAmtLabel").textContent = el("ePayType").value==="hourly" ? "Hourly rate" : "Annual salary";
     document.querySelectorAll(".usf").forEach(function(d){ d.style.display = c.us ? "" : "none"; });
+    syncStateUI();
   }
+
+  function syncStateUI(){ el("eStateRateWrap").style.display = (ctry().us && el("eState").value==="custom") ? "" : "none"; }
 
   function renderEmployees(){
     el("coName").textContent = state.company;
@@ -238,7 +313,7 @@
     if(!state.employees.length){ box.innerHTML='<div class="empty">No employees yet. Add one above, or load a sample team from Reports.</div>'; return; }
     var rows=state.employees.map(function(e){
       var pay = e.payType==="hourly" ? (money(e.rate||0)+"/hr · "+(e.hours||0)+" hrs") : (money(e.annual||0)+"/yr");
-      var extra = ctry().us ? (STATUS_LABEL[e.filingStatus||"single"]+" · ") : "";
+      var extra = ctry().us ? (STATUS_LABEL[e.filingStatus||"single"]+" · "+(STATES[e.state]?e.state+" · ":"")) : "";
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
         +'<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+extra+money(grossFor(e))+'/period</div></td>'
         +'<td class="num">'+money(ytdGrossFor(e.id, new Date().getFullYear()))+'<div class="pill">YTD gross</div></td>'
@@ -364,7 +439,9 @@
     el("eName").value=e.name; el("eDept").value=e.dept||""; el("ePayType").value=e.payType; el("ePayType").onchange();
     el("eFreq").value=e.freq; el("eAmt").value=(e.payType==="hourly")?(e.rate||0):(e.annual||0);
     if(e.payType==="hourly") el("eHours").value=e.hours||0;
-    el("eStatus").value=e.filingStatus||"single"; el("eStateRate").value=e.stateRatePct||0;
+    el("eStatus").value=e.filingStatus||"single";
+    el("eState").value = e.state!==undefined ? e.state : ((e.stateRatePct||0)>0 ? "custom" : "");
+    el("eStateRate").value=e.stateRatePct||0; syncStateUI();
     el("ePretax").value=e.pretax||0; el("ePosttax").value=e.posttax||0; el("eSuta").value=e.sutaRatePct||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
     try{ el("eName").scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
@@ -378,7 +455,7 @@
     if(hourly && (amt<=0 || hrs<=0)){ alert("Enter a positive hourly rate and hours per period."); el(amt<=0?"eAmt":"eHours").focus(); return; }
     if(!hourly && amt<=0){ alert("Enter a positive annual salary."); el("eAmt").focus(); return; }
     var f={ name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
-      filingStatus:el("eStatus").value, stateRatePct:Math.max(0,Number(el("eStateRate").value)||0),
+      filingStatus:el("eStatus").value, state:el("eState").value, stateRatePct:Math.max(0,Number(el("eStateRate").value)||0),
       pretax:Math.max(0,Number(el("ePretax").value)||0), posttax:Math.max(0,Number(el("ePosttax").value)||0), sutaRatePct:Math.max(0,Number(el("eSuta").value)||0),
       annual:hourly?0:amt, rate:hourly?amt:0, hours:hrs };
     if(editingId){ var ex=state.employees.filter(function(x){return x.id===editingId;})[0];
@@ -391,9 +468,9 @@
   el("coName").onclick=function(){ var n=prompt("Company name", state.company); if(n!==null){ state.company=(n.trim()||state.company); save(); el("coName").textContent=state.company; } };
   el("seedBtn").onclick=function(){
     state.employees=[
-      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:6, pretax:200, posttax:0, sutaRatePct:3.4, annual:130000, rate:0, hours:0 },
+      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:0, pretax:200, posttax:0, sutaRatePct:3.4, annual:130000, rate:0, hours:0 },
       { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", state:"TX", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:2.7, annual:78000, rate:0, hours:0 },
-      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:5, pretax:0, posttax:0, sutaRatePct:4.1, annual:0, rate:32, hours:80 }
+      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:4.1, annual:0, rate:32, hours:80 }
     ];
     save(); renderEmployees(); show("employees");
   };
@@ -427,6 +504,12 @@
     var a=document.createElement("a"); a.href=url; a.download="payroll-ytd.csv"; document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
   };
   document.querySelectorAll("nav button").forEach(function(b){ b.onclick=function(){ show(b.dataset.tab); }; });
+
+  (function(){ var o='<option value="">No state tax</option>';
+    Object.keys(STATES).sort(function(a,b){ return STATES[a].n<STATES[b].n?-1:1; }).forEach(function(k){ o+='<option value="'+k+'">'+esc(STATES[k].n)+'</option>'; });
+    el("eState").innerHTML=o+'<option value="custom">Custom flat rate…</option>';
+    el("eState").onchange=syncStateUI;
+  })();
 
   el("rDate").value=new Date().toISOString().slice(0,10);
   // Ask the browser to protect this origin's storage from eviction.

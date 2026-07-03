@@ -47,11 +47,15 @@
   .totals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
   .stat{background:var(--soft);border-radius:var(--r);padding:10px} .stat .k{font-size:12px;color:var(--mut)} .stat .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
   .small{display:flex;justify-content:space-between;font-size:13px;color:var(--mut)} .small .v{color:var(--txt);font-weight:600}
+  .chip{font-size:12px;padding:2px 8px;border-radius:20px;background:var(--soft);border:0.5px solid var(--line);color:var(--mut);white-space:nowrap}
+  .chip.due{background:var(--accent-bg);color:var(--accent);border-color:var(--accent)}
+  .chip.over{color:var(--danger);border-color:var(--danger);font-weight:600}
+  .alert{font-size:13px;color:var(--danger);background:var(--soft);border:0.5px solid var(--danger);border-radius:var(--r);padding:8px 11px;margin-bottom:12px}
   .foot{font-size:12px;color:var(--mut);text-align:center;margin-top:18px}
   @media (max-width:560px){.grid2{grid-template-columns:1fr}}
   @media print{
     body{background:#fff;color:#000;padding:0}
-    nav,.note,.foot,#tab-employees,#tab-reports,.badge,#rRun,#rDate,#rPrint,#rFinal,#tab-run>.card:first-of-type{display:none !important}
+    nav,.note,.foot,#tab-employees,#tab-schedule,#tab-reports,.badge,#rRun,#rDate,#rPrint,#rFinal,#tab-run>.card:first-of-type{display:none !important}
     .card,.slip{border:1px solid #ccc;break-inside:avoid;background:#fff}
     body.yeprint .wrap>*:not(#ye){display:none !important} body.yeprint #ye{display:block !important}
   }
@@ -82,8 +86,9 @@
   <div class="note" id="discl"></div>
 
   <nav>
-    <button data-tab="employees" class="on">Employees</button>
-    <button data-tab="run">Run payroll</button>
+    <button data-tab="employees" class="on">Team</button>
+    <button data-tab="run">Run</button>
+    <button data-tab="schedule">Schedule</button>
     <button data-tab="reports">Reports</button>
   </nav>
 
@@ -113,11 +118,19 @@
     <div class="card"><h2>Run payroll</h2>
       <div class="grid2">
         <div><label>Pay date</label><input id="rDate" type="date" /></div>
-        <div style="display:flex;align-items:flex-end"><button class="btn primary" id="rRun" style="width:100%">Run payroll</button></div>
+        <div><label>Who to pay</label><select id="rWho"><option value="all">All employees</option></select></div>
       </div>
+      <div class="row" style="margin-top:10px"><button class="btn primary" id="rRun" style="width:100%">Run payroll</button></div>
       <div class="pill" style="margin-top:8px">Gross is computed per employee. US year-to-date caps (Social Security, Additional Medicare, FUTA/SUTA) apply once a run is finalized.</div>
     </div>
     <div id="runOut"></div>
+  </section>
+
+  <section id="tab-schedule" style="display:none">
+    <div id="schedAlert"></div>
+    <div class="card"><h2>Next pay runs</h2><div id="schedOut"></div></div>
+    <div class="card"><h2>Upcoming pay dates</h2><div id="schedUpcoming"></div>
+      <div class="pill" style="margin-top:8px">Weekly and biweekly dates follow your last finalized run for that group; semimonthly falls on the 15th and last day of the month, monthly on the last day.</div></div>
   </section>
 
   <section id="tab-reports" style="display:none">
@@ -290,8 +303,91 @@
   function ytdGrossFor(empId, year){ var t=0; state.runs.forEach(function(r){ if(runYear(r)!==year) return; r.slips.forEach(function(s){ if(s.id===empId) t+=s.gross; }); }); return r2(t); }
   function computeFor(e, year){ return ctry().compute(e, grossFor(e), ytdGrossFor(e.id, year), PERIODS[e.freq]||26); }
 
-  function show(tab){ ["employees","run","reports"].forEach(function(t){ el("tab-"+t).style.display=(t===tab?"block":"none"); });
-    document.querySelectorAll("nav button").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===tab); }); if(tab==="reports") renderReports(); }
+  function show(tab){ ["employees","run","schedule","reports"].forEach(function(t){ el("tab-"+t).style.display=(t===tab?"block":"none"); });
+    document.querySelectorAll("nav button").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===tab); });
+    if(tab==="reports") renderReports(); if(tab==="schedule") renderSchedule(); if(tab==="run") populateWho(); }
+
+  // ----- Pay schedule -----
+  var FREQ_ORDER = ["weekly","biweekly","semimonthly","monthly"];
+  function pd(s){ var a=s.split("-"); return new Date(Date.UTC(+a[0],+a[1]-1,+a[2])); }
+  function ds(d){ return d.toISOString().slice(0,10); }
+  function addD(s,n){ var d=pd(s); d.setUTCDate(d.getUTCDate()+n); return ds(d); }
+  function todayStr(){ return new Date().toISOString().slice(0,10); }
+  function daysDiff(a,b){ return Math.round((pd(b)-pd(a))/86400000); }
+  function lastDom(y,m){ return new Date(Date.UTC(y,m+1,0)).getUTCDate(); }
+  function fmtDate(s){ return pd(s).toLocaleDateString(ctry().loc,{timeZone:"UTC",weekday:"short",month:"short",day:"numeric"}); }
+
+  // First pay date strictly after `after` for a frequency. Weekly/biweekly step
+  // from the given date; semimonthly = 15th & last day; monthly = last day.
+  function nextAfter(freq, after){
+    if(freq==="weekly") return addD(after,7);
+    if(freq==="biweekly") return addD(after,14);
+    var d=pd(after), y=d.getUTCFullYear(), m=d.getUTCMonth(), day=d.getUTCDate(), ld=lastDom(y,m);
+    if(freq==="semimonthly"){
+      if(day<15) return ds(new Date(Date.UTC(y,m,15)));
+      if(day<ld) return ds(new Date(Date.UTC(y,m,ld)));
+      return ds(new Date(Date.UTC(y,m+1,15)));
+    }
+    if(day<ld) return ds(new Date(Date.UTC(y,m,ld)));
+    return ds(new Date(Date.UTC(y,m+2,0)));
+  }
+
+  function lastRunDateFor(freq){
+    var ids={}; state.employees.forEach(function(e){ if(e.freq===freq) ids[e.id]=1; });
+    var last=null;
+    state.runs.forEach(function(r){ if(r.slips.some(function(s){ return ids[s.id]; }) && (!last || r.date>last)) last=r.date; });
+    return last;
+  }
+
+  function nextDueFor(freq){
+    var last=lastRunDateFor(freq);
+    if(freq==="weekly"||freq==="biweekly"){
+      if(last) return nextAfter(freq,last);
+      var t=pd(todayStr()); t.setUTCDate(t.getUTCDate()+(5-t.getUTCDay()+7)%7); return ds(t); // upcoming Friday
+    }
+    return nextAfter(freq, last||addD(todayStr(),-1));
+  }
+
+  function renderSchedule(){
+    var t=todayStr();
+    var freqs=FREQ_ORDER.filter(function(f){ return state.employees.some(function(e){ return e.freq===f; }); });
+    if(!freqs.length){ el("schedAlert").innerHTML=""; el("schedOut").innerHTML='<div class="empty">No employees yet — add your team to see a pay schedule.</div>'; el("schedUpcoming").innerHTML='<div class="empty">Nothing scheduled.</div>'; return; }
+    var overdue=[];
+    var rows=freqs.map(function(f){
+      var emps=state.employees.filter(function(e){ return e.freq===f; });
+      var gross=0; emps.forEach(function(e){ gross+=grossFor(e); });
+      var due=nextDueFor(f), chip;
+      if(due<t){ chip='<span class="chip over">Overdue '+daysDiff(due,t)+'d</span>'; overdue.push(FREQ_LABEL[f]+" pay was due "+fmtDate(due)); }
+      else if(due===t) chip='<span class="chip due">Due today</span>';
+      else chip='<span class="chip">in '+daysDiff(t,due)+'d</span>';
+      return '<tr><td>'+FREQ_LABEL[f]+'<div class="pill">'+emps.length+' employee(s)</div></td>'
+        +'<td class="num">'+money(gross)+'<div class="pill">est. gross</div></td>'
+        +'<td>'+fmtDate(due)+'<div style="margin-top:2px">'+chip+'</div></td>'
+        +'<td class="num"><button class="link" data-runf="'+f+'" data-rund="'+due+'">Run now</button></td></tr>';
+    }).join("");
+    el("schedOut").innerHTML='<table><tr><th>Group</th><th class="num">Per run</th><th>Next pay date</th><th></th></tr>'+rows+'</table>';
+    el("schedAlert").innerHTML = overdue.length ? '<div class="alert">⚠ '+overdue.join(" · ")+'. Run the missed payroll or finalize it with the correct back-date.</div>' : "";
+    el("schedOut").querySelectorAll("[data-runf]").forEach(function(b){ b.onclick=function(){
+      show("run"); el("rDate").value=b.dataset.rund; el("rWho").value=b.dataset.runf; runPayroll();
+    }; });
+    var up=[];
+    freqs.forEach(function(f){
+      var n=state.employees.filter(function(e){ return e.freq===f; }).length;
+      var d=nextDueFor(f);
+      for(var i=0;i<4;i++){ up.push({date:d,f:f,n:n}); d=nextAfter(f,d); }
+    });
+    up.sort(function(a,b){ return a.date<b.date?-1:1; });
+    el("schedUpcoming").innerHTML='<table><tr><th>Date</th><th>Group</th><th class="num">Employees</th></tr>'
+      +up.slice(0,8).map(function(u){ return '<tr><td>'+fmtDate(u.date)+(u.date<t?' <span class="chip over">missed</span>':(u.date===t?' <span class="chip due">today</span>':''))+'</td><td>'+FREQ_LABEL[u.f]+'</td><td class="num">'+u.n+'</td></tr>'; }).join("")+'</table>';
+  }
+
+  function populateWho(){
+    var sel=el("rWho"), cur=sel.value||"all";
+    var o='<option value="all">All employees</option>';
+    FREQ_ORDER.forEach(function(f){ if(state.employees.some(function(e){ return e.freq===f; })) o+='<option value="'+f+'">'+FREQ_LABEL[f]+' only</option>'; });
+    sel.innerHTML=o;
+    sel.value = Array.prototype.some.call(sel.options,function(op){ return op.value===cur; }) ? cur : "all";
+  }
 
   function applyCountry(){
     var c=ctry();
@@ -333,7 +429,7 @@
 
   function renderRun(slips, finalized){
     var box=el("runOut"); if(!slips){ box.innerHTML=""; return; }
-    if(!slips.length){ box.innerHTML='<div class="card"><div class="empty">No employees to pay. Add employees first.</div></div>'; return; }
+    if(!slips.length){ box.innerHTML='<div class="card"><div class="empty">No employees to pay for this selection.</div></div>'; return; }
     var tg=0,tn=0,te=0,tt=0;
     var cards=slips.map(function(s){ tg+=s.gross; tn+=s.net; te+=s.employer; tt+=(s.gross-s.net); return slipCard(s, state.country); }).join("");
     var head='<div class="card"><h2>'+(finalized?"Run finalized":"Payroll preview")+'</h2>'
@@ -351,7 +447,9 @@
   function runPayroll(){
     var date=el("rDate").value || new Date().toISOString().slice(0,10);
     var year=Number(date.slice(0,4))||new Date().getFullYear();
-    var slips=state.employees.map(function(e){ var c=computeFor(e, year); return { id:e.id, name:e.name, gross:r2(grossFor(e)), eLines:c.eLines, employer:c.employer, net:c.net }; });
+    var who=el("rWho").value||"all";
+    var slips=state.employees.filter(function(e){ return who==="all"||e.freq===who; })
+      .map(function(e){ var c=computeFor(e, year); return { id:e.id, name:e.name, gross:r2(grossFor(e)), eLines:c.eLines, employer:c.employer, net:c.net }; });
     window._run={ date:date };
     renderRun(slips, false);
   }
@@ -464,7 +562,7 @@
     save(); ["eName","eDept","eAmt","eHours"].forEach(function(id){ el(id).value=""; }); renderEmployees();
   };
   el("rRun").onclick=runPayroll;
-  el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); };
+  el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); if(el("tab-schedule").style.display!=="none") renderSchedule(); };
   el("coName").onclick=function(){ var n=prompt("Company name", state.company); if(n!==null){ state.company=(n.trim()||state.company); save(); el("coName").textContent=state.company; } };
   el("seedBtn").onclick=function(){
     state.employees=[

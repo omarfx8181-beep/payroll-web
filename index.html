@@ -222,8 +222,22 @@
 
   // Canada 2026: federal + provincial brackets (rates as decimals after init),
   // BPA credits at the lowest rate, CPP/CPP2 + EI. NZ 2026-27: PAYE + ACC.
-  var CA_TAX = {/*CA_DATA*/};
-  var PROVINCES = {/*PROV_DATA*/};
+  var CA_TAX = {fed:[[58523,14],[117045,20.5],[181440,26],[258482,29],[null,33]],bpa:16452,cpp:{ex:3500,ympe:74600,yampe:85000,rate:5.95,rate2:4},ei:{rate:1.63,mie:68900,mult:1.4}};
+  var PROVINCES = {
+    AB:{n:"Alberta",b:[[61200,8],[154259,10],[185111,12],[246813,13],[370220,14],[null,15]],bpa:22769},
+    BC:{n:"British Columbia",b:[[50363,5.6],[100728,7.7],[115648,10.5],[140430,12.29],[190405,14.7],[265545,16.8],[null,20.5]],bpa:13216},
+    MB:{n:"Manitoba",b:[[47000,10.8],[100000,12.75],[null,17.4]],bpa:15780},
+    NB:{n:"New Brunswick",b:[[52333,9.4],[104666,14],[193861,16],[null,19.5]],bpa:13664},
+    NL:{n:"Newfoundland and Labrador",b:[[44678,8.7],[89354,14.5],[159528,15.8],[223340,17.8],[285319,19.8],[570638,20.8],[1141275,21.3],[null,21.8]],bpa:13094},
+    NS:{n:"Nova Scotia",b:[[30995,8.79],[61991,14.95],[97417,16.67],[157124,17.5],[null,21]],bpa:11932},
+    NT:{n:"Northwest Territories",b:[[53003,5.9],[106009,8.6],[172346,12.2],[null,14.05]],bpa:18198},
+    NU:{n:"Nunavut",b:[[55801,4],[111601,7],[181439,9],[null,11.5]],bpa:19659},
+    ON:{n:"Ontario",b:[[53891,5.05],[107785,9.15],[150000,11.16],[220000,12.16],[null,13.16]],bpa:12989},
+    PE:{n:"Prince Edward Island",b:[[33328,9.5],[64656,13.47],[105000,16.6],[140000,17.62],[null,19]],bpa:15000},
+    QC:{n:"Quebec",b:[[54345,14],[108680,19],[132245,24],[null,25.75]],bpa:18952},
+    SK:{n:"Saskatchewan",b:[[54532,10.5],[155805,12.5],[null,14.5]],bpa:20381},
+    YT:{n:"Yukon",b:[[58523,6.4],[117045,9],[181440,10.9],[500000,12.8],[null,15]],bpa:16452}
+  };
   var NZ_TAX = {paye:[[15600,10.5],[53500,17.5],[78100,30],[180000,33],[null,39]],acc:{ratePct:1.75,cap:156641},kiwiPct:3.5};
   function toBands(b){ return b.map(function(x){ return [x[0]==null?Infinity:x[0], x[1]/100]; }); }
   if(CA_TAX.fed){

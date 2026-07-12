@@ -77,6 +77,7 @@
           <option value="CA">Canada (CAD)</option>
           <option value="AU">Australia (AUD)</option>
           <option value="IE">Ireland (EUR)</option>
+          <option value="NZ">New Zealand (NZD)</option>
         </select>
       </div>
       <div style="align-self:end"><div class="pill" id="cInfo"></div></div>
@@ -103,6 +104,7 @@
         <div><label id="eAmtLabel">Annual salary</label><input id="eAmt" type="number" min="0" step="100" placeholder="130000" inputmode="numeric" /></div>
         <div id="eHoursWrap" style="display:none"><label>Hours per period</label><input id="eHours" type="number" min="0" step="1" placeholder="80" inputmode="numeric" /></div>
         <div class="usf"><label>Filing status</label><select id="eStatus"><option value="single">Single</option><option value="marriedFilingJointly">Married filing jointly</option><option value="headOfHousehold">Head of household</option></select></div>
+        <div class="caf"><label>Province / Territory</label><select id="eProv"></select></div>
         <div class="usf"><label>State</label><select id="eState"></select></div>
         <div class="usf" id="eStateRateWrap"><label>Custom state rate (%)</label><input id="eStateRate" type="number" min="0" step="0.1" placeholder="0" inputmode="decimal" /></div>
         <div class="usf"><label>Pre-tax 401(k) (/period)</label><input id="ePretax" type="number" min="0" step="10" placeholder="0" inputmode="decimal" /></div>
@@ -218,6 +220,39 @@
     else if(S.t==="b") S.bands=S.b.map(function(x){ return [x[0]==null?Infinity:x[0], x[1]/100]; });
   });
 
+  // Canada 2026: federal + provincial brackets (rates as decimals after init),
+  // BPA credits at the lowest rate, CPP/CPP2 + EI. NZ 2026-27: PAYE + ACC.
+  var CA_TAX = {fed:[[58523,14],[117045,20.5],[181440,26],[258482,29],[null,33]],bpa:16452,cpp:{ex:3500,ympe:74600,yampe:85000,rate:5.95,rate2:4},ei:{rate:1.63,mie:68900,mult:1.4}};
+  var PROVINCES = {
+    AB:{n:"Alberta",b:[[61200,8],[154259,10],[185111,12],[246813,13],[370220,14],[null,15]],bpa:22769},
+    BC:{n:"British Columbia",b:[[50363,5.6],[100728,7.7],[115648,10.5],[140430,12.29],[190405,14.7],[265545,16.8],[null,20.5]],bpa:13216},
+    MB:{n:"Manitoba",b:[[47000,10.8],[100000,12.75],[null,17.4]],bpa:15780},
+    NB:{n:"New Brunswick",b:[[52333,9.4],[104666,14],[193861,16],[null,19.5]],bpa:13664},
+    NL:{n:"Newfoundland and Labrador",b:[[44678,8.7],[89354,14.5],[159528,15.8],[223340,17.8],[285319,19.8],[570638,20.8],[1141275,21.3],[null,21.8]],bpa:15000},
+    NS:{n:"Nova Scotia",b:[[30995,8.79],[61991,14.95],[97417,16.67],[157124,17.5],[null,21]],bpa:11932},
+    NT:{n:"Northwest Territories",b:[[53003,5.9],[106009,8.6],[172346,12.2],[null,14.05]],bpa:18198},
+    NU:{n:"Nunavut",b:[[55801,4],[111601,7],[181439,9],[null,11.5]],bpa:19659},
+    ON:{n:"Ontario",b:[[53891,5.05],[107785,9.15],[150000,11.16],[220000,12.16],[null,13.16]],bpa:12989},
+    PE:{n:"Prince Edward Island",b:[[33328,9.5],[64656,13.47],[105000,16.6],[140000,17.62],[null,19]],bpa:15000},
+    QC:{n:"Quebec",b:[[54345,14],[108680,19],[132245,24],[null,25.75]],bpa:18952},
+    SK:{n:"Saskatchewan",b:[[54532,10.5],[155805,12.5],[null,14.5]],bpa:20381},
+    YT:{n:"Yukon",b:[[58523,6.4],[117045,9],[181440,10.9],[500000,12.8],[null,15]],bpa:16452}
+  };
+  var NZ_TAX = {paye:[[15600,10.5],[53500,17.5],[78100,30],[180000,33],[null,39]],acc:{ratePct:1.75,cap:156641},kiwiPct:3.5};
+  function toBands(b){ return b.map(function(x){ return [x[0]==null?Infinity:x[0], x[1]/100]; }); }
+  if(CA_TAX.fed){
+    CA_TAX.fedBands=toBands(CA_TAX.fed); CA_TAX.fedBpa=CA_TAX.bpa;
+    CA_TAX.cppBands=[[CA_TAX.cpp.ex,0],[CA_TAX.cpp.ympe,CA_TAX.cpp.rate/100],[CA_TAX.cpp.yampe,CA_TAX.cpp.rate2/100],[Infinity,0]];
+    CA_TAX.eiBands=[[CA_TAX.ei.mie,CA_TAX.ei.rate/100],[Infinity,0]];
+    CA_TAX.eiMult=CA_TAX.ei.mult;
+  }
+  Object.keys(PROVINCES).forEach(function(k){ PROVINCES[k].bands=toBands(PROVINCES[k].b); });
+  if(NZ_TAX.paye){
+    NZ_TAX.bands=toBands(NZ_TAX.paye);
+    NZ_TAX.accBands=[[NZ_TAX.acc.cap,NZ_TAX.acc.ratePct/100],[Infinity,0]];
+    NZ_TAX.kiwi=NZ_TAX.kiwiPct/100;
+  }
+
   // Falls back to the legacy custom flat % for employees saved before state
   // selection existed (state undefined) and for the explicit "custom" option.
   function stateTaxFor(e,g,p){
@@ -258,12 +293,17 @@
         return { eLines:[["Income Tax (PAYE)",tax],["National Insurance",ni]], employer:enni, net:r2(g-tax-ni) };
       }},
     CA:{ name:"Canada", cur:"CAD", loc:"en-CA",
-      note:"Canada 2025 FEDERAL only (no provincial tax): brackets 14.5–33% with $16,129 BPA, CPP+CPP2, EI 1.64%. Annualized estimate; not tax advice.",
+      note:"Canada 2026: federal brackets + provincial/territorial tax with basic-personal-amount credits, CPP/CPP2, EI (employer pays matched CPP + 1.4× EI). Ontario surtax/health premium, Quebec QPP/QPIP differences and abatement not modeled. Annualized estimate; not tax advice.",
       compute:function(e,g,ytd,p){
-        var fed=Math.max(0, r2(bandsTax(g,p,0,[[57375,.145],[114750,.205],[177882,.26],[253414,.29],[Infinity,.33]]) - 16129*0.145/p));
-        var cpp=bandsTax(g,p,0,[[3500,0],[71300,.0595],[81200,.04],[Infinity,0]]);
-        var ei=bandsTax(g,p,0,[[65700,.0164],[Infinity,0]]);
-        return { eLines:[["Federal Income Tax",fed],["CPP",cpp],["EI",ei]], employer:0, net:r2(g-fed-cpp-ei) };
+        var C=CA_TAX;
+        var fed=Math.max(0, r2(bandsTax(g,p,0,C.fedBands) - C.fedBpa*C.fedBands[0][1]/p));
+        var cpp=bandsTax(g,p,0,C.cppBands);
+        var ei=bandsTax(g,p,0,C.eiBands);
+        var L=[["Federal Income Tax",fed]];
+        var prov=0, pr=PROVINCES[e.province];
+        if(pr){ prov=Math.max(0, r2(bandsTax(g,p,0,pr.bands) - pr.bpa*pr.bands[0][1]/p)); L.push(["Provincial Tax ("+e.province+")",prov]); }
+        L.push(["CPP",cpp],["EI",ei]);
+        return { eLines:L, employer:r2(cpp+ei*C.eiMult), net:r2(g-fed-prov-cpp-ei) };
       }},
     AU:{ name:"Australia", cur:"AUD", loc:"en-AU",
       note:"Australia 2025-26: tax-free to $18,200 then 16/30/37/45%, 2% Medicare levy, 12% employer super. Estimate; not tax advice.",
@@ -271,6 +311,14 @@
         var tax=bandsTax(g,p,0,[[18200,0],[45000,.16],[135000,.30],[190000,.37],[Infinity,.45]]);
         var med=r2(g*0.02), sup=r2(g*0.12);
         return { eLines:[["Income Tax (PAYG)",tax],["Medicare Levy",med]], employer:sup, net:r2(g-tax-med) };
+      }},
+    NZ:{ name:"New Zealand", cur:"NZD", loc:"en-NZ",
+      note:"New Zealand 2026-27: PAYE brackets + ACC earners' levy (capped); employer KiwiSaver at the default rate (ESCT not modeled; assumes employee is enrolled). Annualized estimate; not tax advice.",
+      compute:function(e,g,ytd,p){
+        var N=NZ_TAX;
+        var tax=bandsTax(g,p,0,N.bands);
+        var acc=bandsTax(g,p,0,N.accBands);
+        return { eLines:[["Income Tax (PAYE)",tax],["ACC Earners' Levy",acc]], employer:r2(g*N.kiwi), net:r2(g-tax-acc) };
       }},
     IE:{ name:"Ireland", cur:"EUR", loc:"en-IE",
       note:"Ireland 2025: 20/40% with €4,000 tax credits, USC bands, PRSI 4.1% (employer 11.15%). Annualized estimate; not tax advice.",
@@ -398,6 +446,7 @@
     el("country").value = state.country;
     el("eAmtLabel").textContent = el("ePayType").value==="hourly" ? "Hourly rate" : "Annual salary";
     document.querySelectorAll(".usf").forEach(function(d){ d.style.display = c.us ? "" : "none"; });
+    document.querySelectorAll(".caf").forEach(function(d){ d.style.display = state.country==="CA" ? "" : "none"; });
     syncStateUI();
   }
 
@@ -409,7 +458,8 @@
     if(!state.employees.length){ box.innerHTML='<div class="empty">No employees yet. Add one above, or load a sample team from Reports.</div>'; return; }
     var rows=state.employees.map(function(e){
       var pay = e.payType==="hourly" ? (money(e.rate||0)+"/hr · "+(e.hours||0)+" hrs") : (money(e.annual||0)+"/yr");
-      var extra = ctry().us ? (STATUS_LABEL[e.filingStatus||"single"]+" · "+(STATES[e.state]?e.state+" · ":"")) : "";
+      var extra = ctry().us ? (STATUS_LABEL[e.filingStatus||"single"]+" · "+(STATES[e.state]?e.state+" · ":""))
+        : (state.country==="CA"&&PROVINCES[e.province] ? e.province+" · " : "");
       return '<tr><td>'+esc(e.name)+'<div class="pill">'+esc(e.dept||"")+'</div></td>'
         +'<td>'+pay+'<div class="pill">'+FREQ_LABEL[e.freq]+' · '+extra+money(grossFor(e))+'/period</div></td>'
         +'<td class="num">'+money(ytdGrossFor(e.id, new Date().getFullYear()))+'<div class="pill">YTD gross</div></td>'
@@ -539,7 +589,7 @@
     if(e.payType==="hourly") el("eHours").value=e.hours||0;
     el("eStatus").value=e.filingStatus||"single";
     el("eState").value = e.state!==undefined ? e.state : ((e.stateRatePct||0)>0 ? "custom" : "");
-    el("eStateRate").value=e.stateRatePct||0; syncStateUI();
+    el("eStateRate").value=e.stateRatePct||0; el("eProv").value=e.province||""; syncStateUI();
     el("ePretax").value=e.pretax||0; el("ePosttax").value=e.posttax||0; el("eSuta").value=e.sutaRatePct||0;
     editingId=e.id; el("eAdd").textContent="Save changes";
     try{ el("eName").scrollIntoView({behavior:"smooth",block:"center"}); }catch(_){}
@@ -553,7 +603,7 @@
     if(hourly && (amt<=0 || hrs<=0)){ alert("Enter a positive hourly rate and hours per period."); el(amt<=0?"eAmt":"eHours").focus(); return; }
     if(!hourly && amt<=0){ alert("Enter a positive annual salary."); el("eAmt").focus(); return; }
     var f={ name:name, dept:el("eDept").value.trim(), payType:el("ePayType").value, freq:el("eFreq").value,
-      filingStatus:el("eStatus").value, state:el("eState").value, stateRatePct:Math.max(0,Number(el("eStateRate").value)||0),
+      filingStatus:el("eStatus").value, state:el("eState").value, province:el("eProv").value, stateRatePct:Math.max(0,Number(el("eStateRate").value)||0),
       pretax:Math.max(0,Number(el("ePretax").value)||0), posttax:Math.max(0,Number(el("ePosttax").value)||0), sutaRatePct:Math.max(0,Number(el("eSuta").value)||0),
       annual:hourly?0:amt, rate:hourly?amt:0, hours:hrs };
     if(editingId){ var ex=state.employees.filter(function(x){return x.id===editingId;})[0];
@@ -607,6 +657,9 @@
     Object.keys(STATES).sort(function(a,b){ return STATES[a].n<STATES[b].n?-1:1; }).forEach(function(k){ o+='<option value="'+k+'">'+esc(STATES[k].n)+'</option>'; });
     el("eState").innerHTML=o+'<option value="custom">Custom flat rate…</option>';
     el("eState").onchange=syncStateUI;
+    var po='<option value="">— Select —</option>';
+    Object.keys(PROVINCES).sort(function(a,b){ return PROVINCES[a].n<PROVINCES[b].n?-1:1; }).forEach(function(k){ po+='<option value="'+k+'">'+esc(PROVINCES[k].n)+'</option>'; });
+    el("eProv").innerHTML=po;
   })();
 
   el("rDate").value=new Date().toISOString().slice(0,10);

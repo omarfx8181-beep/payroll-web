@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>Payroll</title>
+<meta name="theme-color" content="#185fa5" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="apple-touch-icon" href="icon-192.png" />
 <style>
   :root{
     --bg:#f5f4ef; --card:#fff; --soft:#faf9f5; --line:#e6e4db; --txt:#1f1f1d; --mut:#6b6a64;
@@ -85,6 +88,7 @@
   </div>
 
   <div class="note" id="discl"></div>
+  <div class="alert" id="bkBanner" style="display:none"></div>
 
   <nav>
     <button data-tab="employees" class="on">Team</button>
@@ -139,9 +143,10 @@
     <div class="card"><h2>Finalized runs</h2><div id="runHistory"></div></div>
     <div class="card"><h2>Year-to-date</h2><div id="ytdReport"></div>
       <div class="row" style="margin-top:10px"><button class="btn" id="csvBtn">Export YTD (CSV)</button></div></div>
-    <div class="card"><h2>Data</h2><div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn" id="exportBtn">Export backup</button><button class="btn" id="importBtn">Import backup</button><button class="btn del" id="resetBtn">Reset all data</button></div>
+    <div class="card"><h2>Data</h2><div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn" id="exportBtn">Export backup</button><button class="btn" id="importBtn">Import backup</button><button class="btn" id="autoBtn" style="display:none">Set up auto-backup</button><button class="btn del" id="resetBtn">Reset all data</button></div>
       <input id="importFile" type="file" accept="application/json,.json" style="display:none" />
-      <div class="pill" style="margin-top:8px">Data lives only in this browser — export a backup regularly and keep it somewhere safe.</div></div>
+      <div class="pill" style="margin-top:8px">Data lives only in this browser — export a backup regularly and keep it somewhere safe.</div>
+      <div class="pill" id="bkStatus" style="margin-top:4px"></div></div>
   </section>
 
   <div id="ye" style="display:none"></div>
@@ -335,7 +340,75 @@
   var editingId = null;
 
   function load(){ try{ var s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.employees){ s.country=s.country||"US"; return s; } }catch(e){} return { country:"US", company:"My Company", employees:[], runs:[] }; }
-  function save(){ localStorage.setItem(KEY, JSON.stringify(state)); }
+  function save(){ localStorage.setItem(KEY, JSON.stringify(state)); bkTouch(); }
+
+  // ---- Backup health: count changes since the last backup and nag when stale.
+  // Auto-backup (Chromium desktop): a file handle picked once, persisted in
+  // IndexedDB, rewritten on every change — point it at a synced folder
+  // (Drive/OneDrive/Dropbox) and backups follow the user's cloud for free.
+  var BK_KEY = KEY+"_bk";
+  var bk = (function(){ try{ return JSON.parse(localStorage.getItem(BK_KEY))||{}; }catch(e){ return {}; } })();
+  var fsHandle=null, awTimer=null, awState="off"; // off | on | paused (permission lost)
+  var IDB = {
+    open:function(cb){ try{ var r=indexedDB.open("payroll_bk",1);
+      r.onupgradeneeded=function(){ r.result.createObjectStore("kv"); };
+      r.onsuccess=function(){ cb(r.result); }; r.onerror=function(){ cb(null); }; }catch(e){ cb(null); } },
+    get:function(k,cb){ IDB.open(function(db){ if(!db) return cb(null); try{ var t=db.transaction("kv").objectStore("kv").get(k);
+      t.onsuccess=function(){ cb(t.result||null); }; t.onerror=function(){ cb(null); }; }catch(e){ cb(null); } }); },
+    set:function(k,v){ IDB.open(function(db){ if(db) try{ db.transaction("kv","readwrite").objectStore("kv").put(v,k); }catch(e){} }); },
+    del:function(k){ IDB.open(function(db){ if(db) try{ db.transaction("kv","readwrite").objectStore("kv").delete(k); }catch(e){} }); }
+  };
+  function bkTouch(){ bk.changes=(bk.changes||0)+1; localStorage.setItem(BK_KEY,JSON.stringify(bk)); autoWrite(); bkBanner(); }
+  function bkDone(){ bk.changes=0; bk.last=Date.now(); localStorage.setItem(BK_KEY,JSON.stringify(bk)); bkBanner(); bkStatus(); }
+  function bkBanner(){
+    var b=el("bkBanner");
+    if(awState==="paused"){
+      b.innerHTML='Auto-backup is paused — the browser needs you to re-allow access to your backup file. <button class="link" id="bkResume">Resume auto-backup</button>';
+      b.style.display="block"; el("bkResume").onclick=autoResume; return;
+    }
+    var days = bk.last ? (Date.now()-bk.last)/86400000 : Infinity;
+    var show = awState!=="on" && (bk.changes||0)>0 && (!bk.last || days>7 || bk.changes>=15);
+    if(!show){ b.style.display="none"; return; }
+    b.innerHTML='⚠ '+bk.changes+' change(s) not backed up — payroll data lives only in this browser. '
+      +'<button class="link" id="bkExport">Export backup now</button>'
+      +(autoSupported()?' or <button class="link" id="bkAuto">turn on auto-backup</button>':'');
+    b.style.display="block";
+    el("bkExport").onclick=function(){ el("exportBtn").onclick(); };
+    if(autoSupported()) el("bkAuto").onclick=autoSetup;
+  }
+  function autoSupported(){ return !!window.showSaveFilePicker; }
+  function queryPerm(h){ return h.queryPermission ? h.queryPermission({mode:"readwrite"}) : Promise.resolve("granted"); }
+  function autoWrite(){
+    if(!fsHandle) return;
+    clearTimeout(awTimer);
+    awTimer=setTimeout(function(){
+      queryPerm(fsHandle).then(function(pm){
+        if(pm!=="granted") throw new Error("no-perm");
+        return fsHandle.createWritable().then(function(w){ return w.write(JSON.stringify(state,null,1)).then(function(){ return w.close(); }); });
+      }).then(function(){ awState="on"; bkDone(); })
+        .catch(function(){ awState="paused"; bkStatus(); bkBanner(); });
+    },800);
+  }
+  function autoSetup(){
+    window.showSaveFilePicker({ suggestedName:"payroll-backup.json", types:[{description:"JSON backup",accept:{"application/json":[".json"]}}] })
+      .then(function(h){ fsHandle=h; IDB.set("handle",h); awState="on"; autoWrite(); bkStatus(); bkBanner(); })
+      .catch(function(){});
+  }
+  function autoResume(){
+    if(!fsHandle || !fsHandle.requestPermission) return autoSetup();
+    fsHandle.requestPermission({mode:"readwrite"}).then(function(pm){
+      if(pm==="granted"){ awState="on"; autoWrite(); bkStatus(); bkBanner(); }
+    }).catch(function(){});
+  }
+  function autoOff(){ fsHandle=null; awState="off"; IDB.del("handle"); bkStatus(); bkBanner(); }
+  function bkStatus(){
+    var s=el("bkStatus"), btn=el("autoBtn");
+    if(!autoSupported()){ s.textContent="Auto-backup needs a Chromium browser (Chrome/Edge) on desktop."; btn.style.display="none"; return; }
+    btn.style.display="";
+    if(awState==="on"){ btn.textContent="Turn off auto-backup"; s.textContent="Auto-backup is ON — every change is saved to your chosen file"+(bk.last?" (last "+new Date(bk.last).toLocaleTimeString()+")":"")+". Keep the file in a synced folder (Drive/OneDrive) for cloud backup."; }
+    else if(awState==="paused"){ btn.textContent="Resume auto-backup"; s.textContent="Auto-backup is paused — access to the backup file must be re-allowed."; }
+    else { btn.textContent="Set up auto-backup"; s.textContent="Tip: auto-backup writes a backup file automatically on every change."; }
+  }
   function uid(){ return "e"+Math.random().toString(36).slice(2,9); }
   function ctry(){ return COUNTRIES[state.country] || COUNTRIES.US; }
   function fmtCur(loc,cur,n){ var v=Number(n); if(!isFinite(v)) v=0; return new Intl.NumberFormat(loc,{style:"currency",currency:cur}).format(r2(v)); }
@@ -627,6 +700,12 @@
     var blob=new Blob([JSON.stringify(state,null,1)],{type:"application/json"}), url=URL.createObjectURL(blob);
     var a=document.createElement("a"); a.href=url; a.download="payroll-backup-"+new Date().toISOString().slice(0,10)+".json";
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+    bkDone();
+  };
+  el("autoBtn").onclick=function(){
+    if(awState==="on"){ if(confirm("Turn off auto-backup? Changes will no longer be written to your backup file.")) autoOff(); }
+    else if(awState==="paused") autoResume();
+    else autoSetup();
   };
   el("importBtn").onclick=function(){ el("importFile").click(); };
   el("importFile").onchange=function(){
@@ -638,7 +717,7 @@
         if(!s || !Array.isArray(s.employees) || !Array.isArray(s.runs)) throw new Error("bad shape");
         if(!confirm("Replace ALL current data with this backup ("+s.employees.length+" employee(s), "+s.runs.length+" run(s))?")) return;
         s.country=COUNTRIES[s.country]?s.country:"US"; s.company=s.company||"My Company";
-        state=s; save(); applyCountry(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; el("ye").style.display="none"; show("employees");
+        state=s; save(); bkDone(); applyCountry(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; el("ye").style.display="none"; show("employees");
       }catch(e){ alert("That file is not a valid payroll backup."); }
     };
     r.readAsText(f);
@@ -666,6 +745,17 @@
   // Ask the browser to protect this origin's storage from eviction.
   if(navigator.storage && navigator.storage.persist){ try{ navigator.storage.persist(); }catch(_){} }
   applyCountry(); renderEmployees();
+
+  bkStatus(); bkBanner();
+  if(autoSupported()){
+    IDB.get("handle", function(h){
+      if(!h || typeof h.createWritable!=="function") return;
+      fsHandle=h;
+      queryPerm(h).then(function(pm){ awState = pm==="granted" ? "on" : "paused"; bkStatus(); bkBanner(); }).catch(function(){});
+    });
+  }
+  // Offline support / installable app (served over http(s) only).
+  if("serviceWorker" in navigator && location.protocol!=="file:"){ try{ navigator.serviceWorker.register("sw.js"); }catch(_){} }
 })();
 </script>
 </body>

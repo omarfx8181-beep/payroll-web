@@ -224,7 +224,7 @@
   // BPA credits at the lowest rate, CPP/CPP2 + EI. NZ 2026-27: PAYE + ACC.
   var CA_TAX = {/*CA_DATA*/};
   var PROVINCES = {/*PROV_DATA*/};
-  var NZ_TAX = {/*NZ_DATA*/};
+  var NZ_TAX = {paye:[[15600,10.5],[53500,17.5],[78100,30],[180000,33],[null,39]],acc:{ratePct:1.75,cap:156641},kiwiPct:3.5};
   function toBands(b){ return b.map(function(x){ return [x[0]==null?Infinity:x[0], x[1]/100]; }); }
   if(CA_TAX.fed){
     CA_TAX.fedBands=toBands(CA_TAX.fed); CA_TAX.fedBpa=CA_TAX.bpa;

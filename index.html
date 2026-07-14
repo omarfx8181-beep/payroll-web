@@ -144,7 +144,7 @@
     <div class="card"><h2>Finalized runs</h2><div id="runHistory"></div></div>
     <div class="card"><h2>Year-to-date</h2><div id="ytdReport"></div>
       <div class="row" style="margin-top:10px"><button class="btn" id="csvBtn">Export YTD (CSV)</button></div></div>
-    <div class="card"><h2>Data</h2><div class="row"><button class="btn" id="seedBtn">Load sample team</button><button class="btn" id="exportBtn">Export backup</button><button class="btn" id="importBtn">Import backup</button><button class="btn" id="autoBtn" style="display:none">Set up auto-backup</button><button class="btn del" id="resetBtn">Reset all data</button></div>
+    <div class="card"><h2>Data</h2><div class="row"><button class="btn" id="seedBtn">Load demo data</button><button class="btn" id="exportBtn">Export backup</button><button class="btn" id="importBtn">Import backup</button><button class="btn" id="autoBtn" style="display:none">Set up auto-backup</button><button class="btn del" id="resetBtn">Reset all data</button></div>
       <input id="importFile" type="file" accept="application/json,.json" style="display:none" />
       <div class="pill" style="margin-top:8px">Data lives only in this browser — export a backup regularly and keep it somewhere safe.</div>
       <div class="pill" id="bkStatus" style="margin-top:4px"></div></div>
@@ -716,13 +716,45 @@
   el("rRun").onclick=runPayroll;
   el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); window._run=null; el("runHours").innerHTML=""; el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); if(el("tab-schedule").style.display!=="none") renderSchedule(); };
   el("coName").onclick=function(){ var n=prompt("Company name", state.company); if(n!==null){ state.company=(n.trim()||state.company); save(); el("coName").textContent=state.company; } };
+  // Demo dataset: 6 employees across three pay groups plus ~3 months of
+  // finalized runs computed through the real engine (so YTD caps are honest).
+  // The weekly group's last run is 10 days old on purpose — it demos the
+  // overdue warning on the Schedule tab.
   el("seedBtn").onclick=function(){
+    if((state.employees.length||state.runs.length) && !confirm("Replace ALL current data with the demo dataset (6 employees + 3 months of payroll history)?")) return;
+    state.country="US"; state.company="Sunrise Studio (Demo)";
+    function E(n,d,pt,f,fs,st,x){ var e={ id:uid(), name:n, dept:d, payType:pt, freq:f, filingStatus:fs, state:st, province:"", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:0, annual:0, rate:0, hours:0 }; for(var k in x) e[k]=x[k]; return e; }
     state.employees=[
-      { id:uid(), name:"Alex Kim", dept:"Engineering", payType:"salary", freq:"biweekly", filingStatus:"single", state:"CA", stateRatePct:0, pretax:200, posttax:0, sutaRatePct:3.4, annual:130000, rate:0, hours:0 },
-      { id:uid(), name:"Jordan Lee", dept:"Sales", payType:"salary", freq:"biweekly", filingStatus:"marriedFilingJointly", state:"TX", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:2.7, annual:78000, rate:0, hours:0 },
-      { id:uid(), name:"Sam Rivera", dept:"Ops", payType:"hourly", freq:"biweekly", filingStatus:"headOfHousehold", state:"NY", stateRatePct:0, pretax:0, posttax:0, sutaRatePct:4.1, annual:0, rate:32, hours:80 }
+      E("Alex Kim","Engineering","salary","biweekly","single","CA",{annual:130000,pretax:200,sutaRatePct:3.4}),
+      E("Jordan Lee","Sales","salary","biweekly","marriedFilingJointly","TX",{annual:78000,sutaRatePct:2.7}),
+      E("Sam Rivera","Ops","hourly","biweekly","headOfHousehold","NY",{rate:32,hours:80,sutaRatePct:4.1}),
+      E("Priya Patel","Design","salary","monthly","single","WA",{annual:96000,pretax:300}),
+      E("Dana Fox","Finance","salary","monthly","marriedFilingJointly","NY",{annual:145000,pretax:500,posttax:50}),
+      E("Marcus Webb","Support","hourly","weekly","single","PA",{rate:22,hours:38,posttax:25})
     ];
-    save(); renderEmployees(); show("employees");
+    state.runs=[];
+    var t=todayStr(), plan=[], k;
+    for(k=5;k>=0;k--) plan.push({date:addD(t,-7-14*k),freq:"biweekly"});
+    for(k=3;k>=0;k--) plan.push({date:addD(t,-10-7*k),freq:"weekly"});
+    var td=pd(t);
+    for(k=3;k>=1;k--) plan.push({date:ds(new Date(Date.UTC(td.getUTCFullYear(),td.getUTCMonth()-k+1,0))),freq:"monthly"});
+    plan.sort(function(a,b){ return a.date<b.date?-1:1; });
+    var wob={}, seq=[0,-4,4,0,-8,8,2,-2];
+    plan.forEach(function(r){
+      var year=Number(r.date.slice(0,4))||new Date().getFullYear();
+      var slips=state.employees.filter(function(e){ return e.freq===r.freq; }).map(function(e){
+        var ov=null;
+        if(e.payType==="hourly"){ wob[e.id]=(wob[e.id]||0)+1; ov=Math.max(0,(e.hours||0)+seq[wob[e.id]%seq.length]); }
+        var c=computeFor(e,year,ov);
+        var s={ id:e.id, name:e.name, gross:r2(grossFor(e,ov)), eLines:c.eLines, employer:c.employer, net:c.net };
+        if(ov!=null) s.hours=ov;
+        return s;
+      });
+      state.runs.push({ date:r.date, country:"US", count:slips.length, slips:slips });
+    });
+    save(); applyCountry(); renderEmployees(); renderReports();
+    window._run=null; el("runHours").innerHTML=""; el("runOut").innerHTML="";
+    show("schedule");
   };
   el("resetBtn").onclick=function(){ if(confirm("Delete all employees and runs on this device?")){ state={country:state.country,company:"My Company",employees:[],runs:[]}; save(); renderEmployees(); renderReports(); el("runOut").innerHTML=""; el("ye").style.display="none"; } };
   el("exportBtn").onclick=function(){

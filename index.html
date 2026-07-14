@@ -129,6 +129,7 @@
       <div class="row" style="margin-top:10px"><button class="btn primary" id="rRun" style="width:100%">Run payroll</button></div>
       <div class="pill" style="margin-top:8px">Gross is computed per employee. US year-to-date caps (Social Security, Additional Medicare, FUTA/SUTA) apply once a run is finalized.</div>
     </div>
+    <div id="runHours"></div>
     <div id="runOut"></div>
   </section>
 
@@ -417,12 +418,14 @@
   function el(id){ return document.getElementById(id); }
   function esc(s){ return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c];}); }
 
-  function grossFor(e){ var p=PERIODS[e.freq]||26; return Math.max(0, e.payType==="hourly" ? (e.rate||0)*(e.hours||0) : (e.annual||0)/p); }
+  // hoursOv overrides the employee's default hours for a single run.
+  function grossFor(e, hoursOv){ var p=PERIODS[e.freq]||26; var hrs=hoursOv!=null?hoursOv:(e.hours||0);
+    return Math.max(0, e.payType==="hourly" ? (e.rate||0)*hrs : (e.annual||0)/p); }
   // YTD is derived from finalized runs and scoped to the PAY-DATE year, so US
   // annual caps (Social Security, Add'l Medicare, FUTA) reset every January.
   function runYear(r){ return Number((r.date||"").slice(0,4))||0; }
   function ytdGrossFor(empId, year){ var t=0; state.runs.forEach(function(r){ if(runYear(r)!==year) return; r.slips.forEach(function(s){ if(s.id===empId) t+=s.gross; }); }); return r2(t); }
-  function computeFor(e, year){ return ctry().compute(e, grossFor(e), ytdGrossFor(e.id, year), PERIODS[e.freq]||26); }
+  function computeFor(e, year, hoursOv){ return ctry().compute(e, grossFor(e,hoursOv), ytdGrossFor(e.id, year), PERIODS[e.freq]||26); }
 
   function show(tab){ ["employees","run","schedule","reports"].forEach(function(t){ el("tab-"+t).style.display=(t===tab?"block":"none"); });
     document.querySelectorAll("nav button").forEach(function(b){ b.classList.toggle("on", b.dataset.tab===tab); });
@@ -546,7 +549,7 @@
 
   function slipCard(s, cc, dateLabel){
     var ls=s.eLines.map(function(x){ return '<div class="liner neg"><span>'+esc(x[0])+'</span><span class="v">−'+moneyC(cc,x[1])+'</span></div>'; }).join("");
-    return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+(dateLabel?' <span class="pill">'+esc(dateLabel)+'</span>':'')+'</span><span class="pill">'+moneyC(cc,s.gross)+' gross</span></div>'
+    return '<div class="slip"><div class="h"><span class="nm">'+esc(s.name)+(dateLabel?' <span class="pill">'+esc(dateLabel)+'</span>':'')+'</span><span class="pill">'+moneyC(cc,s.gross)+' gross'+(s.hours!=null?' · '+s.hours+'h':'')+'</span></div>'
       +ls+'<div class="liner net"><span>Net pay</span><span class="v">'+moneyC(cc,s.net)+'</span></div></div>';
   }
 
@@ -569,17 +572,43 @@
 
   function runPayroll(){
     var date=el("rDate").value || new Date().toISOString().slice(0,10);
-    var year=Number(date.slice(0,4))||new Date().getFullYear();
     var who=el("rWho").value||"all";
-    var slips=state.employees.filter(function(e){ return who==="all"||e.freq===who; })
-      .map(function(e){ var c=computeFor(e, year); return { id:e.id, name:e.name, gross:r2(grossFor(e)), eLines:c.eLines, employer:c.employer, net:c.net }; });
-    window._run={ date:date };
+    window._run={ date:date, who:who, hours:{} };
+    runEmps().forEach(function(e){ if(e.payType==="hourly") window._run.hours[e.id]=e.hours||0; });
+    renderHoursCard();
+    recomputeRun();
+  }
+  function runEmps(){ var R=window._run; return state.employees.filter(function(e){ return R.who==="all"||e.freq===R.who; }); }
+  function recomputeRun(){
+    var R=window._run; if(!R) return;
+    var year=Number(R.date.slice(0,4))||new Date().getFullYear();
+    var slips=runEmps().map(function(e){
+      var ov = e.payType==="hourly" ? R.hours[e.id] : null;
+      var c=computeFor(e, year, ov);
+      var s={ id:e.id, name:e.name, gross:r2(grossFor(e,ov)), eLines:c.eLines, employer:c.employer, net:c.net };
+      if(e.payType==="hourly") s.hours=ov;
+      return s;
+    });
     renderRun(slips, false);
+  }
+  function renderHoursCard(){
+    var hh=runEmps().filter(function(e){ return e.payType==="hourly"; });
+    var box=el("runHours");
+    if(!hh.length){ box.innerHTML=""; return; }
+    box.innerHTML='<div class="card"><h2>Hours this run</h2>'+hh.map(function(e){
+      return '<div class="row" style="margin-bottom:8px;align-items:center"><div style="flex:1">'+esc(e.name)
+        +'<div class="pill">'+money(e.rate||0)+'/hr · usually '+(e.hours||0)+' hrs</div></div>'
+        +'<div style="width:110px"><input type="number" min="0" step="0.25" value="'+(window._run.hours[e.id]||0)+'" data-hrs="'+e.id+'" inputmode="decimal" aria-label="Hours for '+esc(e.name)+'" /></div></div>';
+    }).join("")+'<div class="pill">Enter actual hours worked this period — the preview below updates as you type.</div></div>';
+    box.querySelectorAll("[data-hrs]").forEach(function(inp){
+      inp.oninput=function(){ if(!window._run) return; window._run.hours[inp.dataset.hrs]=Math.max(0,Number(inp.value)||0); recomputeRun(); };
+    });
   }
   function finalizeRun(slips){
     var date=(window._run&&window._run.date)||new Date().toISOString().slice(0,10);
     // YTD derives from runs[] (year-scoped) — no separate accumulator to corrupt.
     state.runs.push({ date:date, country:state.country, count:slips.length, slips:slips });
+    window._run=null; el("runHours").innerHTML="";
     save(); renderEmployees(); renderRun(slips, true);
   }
 
@@ -685,7 +714,7 @@
     save(); ["eName","eDept","eAmt","eHours"].forEach(function(id){ el(id).value=""; }); renderEmployees();
   };
   el("rRun").onclick=runPayroll;
-  el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); if(el("tab-schedule").style.display!=="none") renderSchedule(); };
+  el("country").onchange=function(){ state.country=el("country").value; save(); applyCountry(); renderEmployees(); window._run=null; el("runHours").innerHTML=""; el("runOut").innerHTML=""; el("ye").style.display="none"; if(el("tab-reports").style.display!=="none") renderReports(); if(el("tab-schedule").style.display!=="none") renderSchedule(); };
   el("coName").onclick=function(){ var n=prompt("Company name", state.company); if(n!==null){ state.company=(n.trim()||state.company); save(); el("coName").textContent=state.company; } };
   el("seedBtn").onclick=function(){
     state.employees=[
